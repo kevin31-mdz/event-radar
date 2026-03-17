@@ -92,8 +92,10 @@
   .insight-dot { width: 7px; height: 7px; background: var(--accent); border-radius: 50%; }
   .insight-title { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--accent); font-weight: 500; }
   .insight-content { font-size: 13px; color: #c8c6d8; line-height: 1.75; white-space: pre-wrap; }
-  .error-box { display: none; background: rgba(247,140,140,0.06); border: 1px solid rgba(247,140,140,0.2); border-radius: var(--radius); padding: 18px 20px; color: #f78c8c; font-size: 13px; text-align: center; margin-top: 16px; }
+  .error-box { display: none; background: rgba(247,194,71,0.06); border: 1px solid rgba(247,194,71,0.2); border-radius: var(--radius); padding: 20px 22px; color: #f7c247; font-size: 13px; text-align: center; margin-top: 16px; }
   .error-box.active { display: block; }
+  .retry-btn { margin-top: 14px; background: var(--accent); color: #0c0c10; border: none; border-radius: var(--radius-sm); padding: 10px 18px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .retry-btn:hover { opacity: 0.88; }
   footer { border-top: 1px solid var(--border); padding: 18px 24px; text-align: center; font-size: 11px; color: var(--muted2); }
   @media (max-width: 600px) {
     header { padding: 12px 16px; }
@@ -102,7 +104,6 @@
     .search-top { flex-direction: column; }
     .search-btn { width: 100%; text-align: center; padding: 13px; }
     .options-row { gap: 10px; }
-    .opt-group { flex-wrap: wrap; }
     input[type="date"].opt-select { width: 130px; }
     .event-card { grid-template-columns: 46px 1fr; }
     .event-right { display: none; }
@@ -237,8 +238,8 @@
   </div>
 
   <div class="error-box" id="errorBox">
-    <span id="errorMsg">No se pudieron obtener resultados. Verificá tu conexión e intentá de nuevo.</span>
-    <br><small id="errorDetail" style="opacity:0.6;margin-top:4px;display:block"></small>
+    <div id="errorMsg">No se pudieron obtener resultados.</div>
+    <small id="errorDetail" style="opacity:0.6;margin-top:6px;display:block"></small>
   </div>
 
   <div id="results">
@@ -264,14 +265,15 @@
 <footer>RevMates · Event Radar · Revenue Intelligence · revmates.com</footer>
 
 <script>
-  // Inicializar fecha de hoy y +60 días
   function initDates() {
     const hoy = new Date()
     const hasta = new Date()
     hasta.setDate(hoy.getDate() + 60)
     const fmt = d => d.toISOString().split('T')[0]
-    document.getElementById('fechaDesde').value = fmt(hoy)
-    document.getElementById('fechaHasta').value = fmt(hasta)
+    const desdeEl = document.getElementById('fechaDesde')
+    const hastaEl = document.getElementById('fechaHasta')
+    if (!desdeEl.value) desdeEl.value = fmt(hoy)
+    if (!hastaEl.value) hastaEl.value = fmt(hasta)
   }
   initDates()
 
@@ -280,10 +282,11 @@
 
   let allEvents = []
   let activeFilter = 'todos'
+  let lastDest = ''
 
   function go(dest) {
     document.getElementById('destInput').value = dest
-    triggerSearch()
+    setTimeout(() => triggerSearch(), 100)
   }
 
   function goBack() {
@@ -291,18 +294,31 @@
     document.getElementById('quickSection').style.display = 'block'
     document.getElementById('errorBox').classList.remove('active')
     document.getElementById('destInput').value = ''
+    document.getElementById('fechaDesde').value = ''
+    document.getElementById('fechaHasta').value = ''
     initDates()
+  }
+
+  function retryShort() {
+    const hoy = new Date()
+    const hasta = new Date()
+    hasta.setDate(hoy.getDate() + 30)
+    const fmt = d => d.toISOString().split('T')[0]
+    document.getElementById('fechaDesde').value = fmt(hoy)
+    document.getElementById('fechaHasta').value = fmt(hasta)
+    document.getElementById('errorBox').classList.remove('active')
+    document.getElementById('destInput').value = lastDest
+    triggerSearch()
   }
 
   async function triggerSearch() {
     const dest = document.getElementById('destInput').value.trim()
     if (!dest) return
+    lastDest = dest
 
-    // Fechas — si están vacías las inicializamos
-    let fechaDesde = document.getElementById('fechaDesde').value
-    let fechaHasta = document.getElementById('fechaHasta').value
-    if (!fechaDesde || !fechaHasta) { initDates(); fechaDesde = document.getElementById('fechaDesde').value; fechaHasta = document.getElementById('fechaHasta').value }
-
+    initDates()
+    const fechaDesde = document.getElementById('fechaDesde').value
+    const fechaHasta = document.getElementById('fechaHasta').value
     const dias = `desde el ${fechaDesde} hasta el ${fechaHasta}`
     const foco = document.getElementById('foco').value
     const idioma = document.getElementById('idioma').value
@@ -334,7 +350,8 @@
     } catch (err) {
       document.getElementById('loading').classList.remove('active')
       document.getElementById('errorBox').classList.add('active')
-      document.getElementById('errorDetail').textContent = err.message
+      document.getElementById('errorMsg').textContent = err.message
+      document.getElementById('errorDetail').textContent = 'Verificá tu conexión e intentá de nuevo.'
       document.getElementById('quickSection').style.display = 'block'
     }
 
@@ -346,6 +363,19 @@
     document.getElementById('loading').classList.remove('active')
     allEvents = data.events || []
     activeFilter = 'todos'
+
+    if (allEvents.length === 0) {
+      document.getElementById('errorBox').classList.add('active')
+      document.getElementById('errorMsg').innerHTML =
+        'No se encontraron eventos para este destino y período.'
+      document.getElementById('errorDetail').innerHTML =
+        'Probá reducir el período o buscá una ciudad más específica.'
+      document.getElementById('errorBox').insertAdjacentHTML('beforeend',
+        '<br><button class="retry-btn" onclick="retryShort()">Reintentar con 30 días ↗</button>'
+      )
+      document.getElementById('quickSection').style.display = 'block'
+      return
+    }
 
     document.getElementById('resultsTitle').textContent = data.destination || ''
     document.getElementById('resultsMeta').textContent = allEvents.length + ' eventos encontrados'
