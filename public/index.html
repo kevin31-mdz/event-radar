@@ -298,8 +298,8 @@
       const res = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
-      });
+        body: JSON.stringify({ destination: dest, dias, foco, idioma })
+        });
 
       if (!res.ok) {
         const err = await res.json();
