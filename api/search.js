@@ -1,8 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 
 const rateLimit = new Map()
-const MAX_REQUESTS = 15
-const WINDOW_MS =  24 * 60 * 60 * 1000 // 24 horas
+const MAX_REQUESTS = 30
+const WINDOW_MS = 24 * 60 * 60 * 1000
 
 function checkRateLimit(ip) {
   const now = Date.now()
@@ -15,27 +15,17 @@ function checkRateLimit(ip) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
-  const ip = req.headers['x-forwarded-for']?.split(',')[0] ||
-             req.headers['x-real-ip'] ||
-             req.socket?.remoteAddress || 'unknown'
-
+  const ip = req.headers['x-forwarded-for']?.split(',')[0] || 'unknown'
   if (!checkRateLimit(ip)) {
     const record = rateLimit.get(ip)
     const resetIn = Math.ceil((record.start + WINDOW_MS - Date.now()) / 60000)
-    return res.status(429).json({
-      error: `Límite alcanzado. Podés hacer ${MAX_REQUESTS} búsquedas por hora. Intentá en ${resetIn} minutos.`
-    })
+    return res.status(429).json({ error: `Límite alcanzado. Intentá en ${resetIn} minutos.` })
   }
 
   const { destination, dias, foco, idioma } = req.body
-
-  if (!destination) {
-    return res.status(400).json({ error: 'Missing destination' })
-  }
+  if (!destination) return res.status(400).json({ error: 'Missing destination' })
 
   const focoMap = {
     general: 'impacto general en demanda hotelera',
@@ -46,55 +36,30 @@ export default async function handler(req, res) {
 
   const hoy = new Date().toISOString().split('T')[0]
 
-  const prompt = `Hoy es ${hoy}. Busca eventos en ${destination} para el período ${dias}.
+  const prompt = `Sos un asistente de revenue management hotelero. Buscá en internet eventos confirmados en ${destination} para el período ${dias}.
 
-REGLAS:
-- NO incluyas eventos con fecha anterior a ${hoy}
-- Ordena cronológicamente de más próximo a más lejano
-- Incluye: recitales, festivales, deportes, ferias, congresos, festividades Y feriados nacionales/locales
-- Los feriados usan category "festivo"
+Buscá específicamente: conciertos, recitales, festivales de música, partidos de fútbol y otros deportes, maratones, ferias, exposiciones, congresos, feriados nacionales y locales, carnavales, festividades religiosas y culturales.
 
-Responde SOLO con este JSON, sin texto adicional, sin markdown:
-{
-  "destination": "${destination}",
-  "events": [
-    {
-      "name": "nombre del evento",
-      "day": "DD",
-      "month": "abreviatura 3 letras mayúsculas en ${idioma || 'español'}",
-      "year": "YYYY",
-      "category": "music|sport|cultural|mice|gastro|festivo|other",
-      "venue": "lugar",
-      "capacity": "aforo estimado o vacío",
-      "impact": "impacto para revenue management hotelero en 1 línea",
-      "importance": "high|medium"
-    }
-  ],
-  "rm_insight": "análisis de ${focoMap[foco] || 'impacto hotelero'} en 3-4 oraciones. Mencioná feriados que generen fines de semana largos."
-}
+IMPORTANTE: Devolvé SOLO el siguiente JSON sin ningún texto antes ni después, sin markdown, sin explicaciones:
+{"destination":"${destination}","events":[{"name":"nombre exacto del evento","day":"número del día","month":"abreviatura de 3 letras del mes en ${idioma || 'español'} en mayúsculas","year":"año","category":"music|sport|cultural|mice|gastro|festivo|other","venue":"lugar o estadio","capacity":"aforo si lo sabés","impact":"una línea de impacto para hoteles de la zona","importance":"high|medium"}],"rm_insight":"3 oraciones sobre ${focoMap[foco] || 'impacto hotelero'}: pick-up esperado, fechas clave, recomendación de pricing"}
 
-Respondé en ${idioma || 'español'}. Ordenar por fecha ascendente.`
+Si no encontrás eventos, igual devolvé el JSON con events vacío. Respondé en ${idioma || 'español'}.`
 
   try {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
     const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2000,
+      model: 'claude-sonnet-4-6',
+      max_tokens: 3000,
       tools: [{ type: 'web_search_20250305', name: 'web_search' }],
       messages: [{ role: 'user', content: prompt }]
     })
 
-    const textBlock = response.content.find(b => b.type === 'text')
-    const text = textBlock ? textBlock.text : ''
+    const text = (response.content || []).filter(b => b.type === 'text').map(b => b.text).join('')
 
     const match = text.match(/\{[\s\S]*\}/)
     if (!match) {
-      return res.status(200).json({
-        destination,
-        events: [],
-        rm_insight: text || 'No se encontraron eventos.'
-      })
+      return res.status(200).json({ destination, events: [], rm_insight: 'No se encontraron eventos en este período.' })
     }
 
     const data = JSON.parse(match[0])
