@@ -50,19 +50,47 @@ Si no encontrás eventos, igual devolvé el JSON con events vacío. Respondé en
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 3000,
+      max_tokens: 4096,
       tools: [{ type: 'web_search_20250305', name: 'web_search' }],
       messages: [{ role: 'user', content: prompt }]
     })
 
-    const text = (response.content || []).filter(b => b.type === 'text').map(b => b.text).join('')
+   const text = (response.content || []).filter(b => b.type === 'text').map(b => b.text).join('')
 
-    const match = text.match(/\{[\s\S]*\}/)
-    if (!match) {
-      return res.status(200).json({ destination, events: [], rm_insight: 'No se encontraron eventos en este período.' })
+    // Extraer JSON de forma robusta
+    let data
+    try {
+      const match = text.match(/\{[\s\S]*\}/)
+      if (!match) throw new Error('no json')
+      data = JSON.parse(match[0])
+    } catch(parseErr) {
+      // Si el JSON está truncado, intentar recuperar eventos parciales
+      try {
+        const destMatch = text.match(/"destination"\s*:\s*"([^"]+)"/)
+        const eventsMatch = text.match(/"events"\s*:\s*(\[[\s\S]*?)(?:,\s*"rm_insight"|$)/)
+        const insightMatch = text.match(/"rm_insight"\s*:\s*"([^"]+)"/)
+        
+        let events = []
+        if (eventsMatch) {
+          // Cerrar el array si está truncado
+          let evStr = eventsMatch[1]
+          if (!evStr.trim().endsWith(']')) {
+            // Remover último elemento incompleto y cerrar
+            evStr = evStr.replace(/,?\s*\{[^}]*$/, '') + ']'
+          }
+          events = JSON.parse(evStr)
+        }
+        
+        data = {
+          destination: destMatch ? destMatch[1] : destination,
+          events,
+          rm_insight: insightMatch ? insightMatch[1] : ''
+        }
+      } catch(e) {
+        return res.status(200).json({ destination, events: [], rm_insight: 'Demasiados eventos encontrados. Probá con un período más corto.' })
+      }
     }
 
-    const data = JSON.parse(match[0])
     return res.status(200).json(data)
 
   } catch (err) {
