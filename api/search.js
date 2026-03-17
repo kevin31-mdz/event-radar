@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     })
 
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-4-5',
       max_tokens: 2000,
       tools: [{ type: 'web_search_20250305', name: 'web_search' }],
       messages: [{ role: 'user', content: prompt }]
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
 
     const match = text.match(/\{[\s\S]*\}/)
     if (!match) {
-      return res.status(422).json({ error: 'No JSON in response', raw: text })
+      return res.status(200).json({ raw: text, error: 'no_json' })
     }
 
     const data = JSON.parse(match[0])
@@ -36,6 +36,10 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error(err)
-    return res.status(500).json({ error: err.message })
+    return res.status(500).json({ 
+      error: err.message,
+      status: err.status,
+      details: err.error
+    })
   }
 }
