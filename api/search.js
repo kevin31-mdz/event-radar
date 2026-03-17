@@ -1,8 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 
 const rateLimit = new Map()
-const MAX_REQUESTS = 10
-const WINDOW_MS = 60 * 60 * 1000
+const MAX_REQUESTS = 15
+const WINDOW_MS =  24 * 60 * 60 * 1000 // 24 horas
 
 function checkRateLimit(ip) {
   const now = Date.now()

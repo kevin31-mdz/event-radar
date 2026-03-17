@@ -36,7 +36,33 @@
   .search-btn { background: var(--accent); color: #0c0c10; border: none; border-radius: var(--radius-sm); padding: 12px 20px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity 0.2s; white-space: nowrap; }
   .search-btn:hover { opacity: 0.88; }
   .search-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .options-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; padding-top: 14px; border-top: 1px solid var(--border); }
+  .options-row { <div class="options-row">
+  <div class="opt-group">
+    <span class="opt-label">Desde</span>
+    <input type="date" class="opt-select" id="fechaDesde">
+  </div>
+  <div class="opt-group">
+    <span class="opt-label">Hasta</span>
+    <input type="date" class="opt-select" id="fechaHasta">
+  </div>
+  <div class="opt-group" title="Ajusta el análisis de Revenue Insight según el segmento que más te interesa: leisure, corporativo, grupos o impacto general.">
+    <span class="opt-label" style="cursor:help;border-bottom:1px dotted var(--muted)">Foco RM ⓘ</span>
+    <select class="opt-select" id="foco">
+      <option value="general" selected>General — visión completa</option>
+      <option value="leisure">Leisure — turismo vacacional</option>
+      <option value="mice">MICE — congresos y ferias</option>
+      <option value="grupos">Grupos — agencias y emisivo</option>
+    </select>
+  </div>
+  <div class="opt-group" title="Idioma en que se mostrarán los resultados, descripciones y el análisis de Revenue Insight.">
+    <span class="opt-label" style="cursor:help;border-bottom:1px dotted var(--muted)">Idioma ⓘ</span>
+    <select class="opt-select" id="idioma">
+      <option value="español" selected>Español</option>
+      <option value="inglés">Inglés</option>
+      <option value="portugués">Portugués</option>
+    </select>
+  </div>
+</div>}
   .opt-group { display: flex; align-items: center; gap: 6px; }
   .opt-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; white-space: nowrap; }
   .opt-select, input[type="date"].opt-select { background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 6px 10px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 12px; cursor: pointer; outline: none; color-scheme: dark; }
