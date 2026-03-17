@@ -5,7 +5,40 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { prompt } = req.body
+  const { destination, dias, foco, idioma } = req.body
+
+  if (!destination) {
+    return res.status(400).json({ error: 'Missing destination' })
+  }
+
+  const focoMap = {
+    general: 'impacto general en demanda hotelera',
+    leisure: 'segmento leisure y turismo vacacional',
+    mice: 'segmento corporativo, congresos y ferias MICE',
+    grupos: 'grupos, agencias y turismo emisivo'
+  }
+
+  const prompt = `Busca eventos en ${destination} en los próximos ${dias || 60} días desde hoy.
+  
+Responde SOLO con este JSON exacto, sin texto adicional:
+{
+  "destination": "${destination}",
+  "events": [
+    {
+      "name": "nombre del evento",
+      "day": "DD",
+      "month": "MMM",
+      "category": "music",
+      "venue": "lugar",
+      "capacity": "aforo",
+      "impact": "impacto para hoteles",
+      "importance": "high"
+    }
+  ],
+  "rm_insight": "análisis de ${focoMap[foco] || 'impacto hotelero'} en 3 oraciones"
+}
+
+Incluye recitales, festivales, deportes, ferias, congresos, festividades. Responde en ${idioma || 'español'}.`
 
   try {
     const client = new Anthropic({
@@ -19,15 +52,23 @@ export default async function handler(req, res) {
       messages: [{ role: 'user', content: prompt }]
     })
 
-    // Devolver la respuesta completa para debug
-    return res.status(200).json({
-      contentBlocks: response.content.length,
-      types: response.content.map(b => b.type),
-      rawText: response.content.find(b => b.type === 'text')?.text || 'SIN TEXTO',
-      stopReason: response.stop_reason
-    })
+    const textBlock = response.content.find(b => b.type === 'text')
+    const text = textBlock ? textBlock.text : ''
+
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) {
+      return res.status(200).json({
+        destination,
+        events: [],
+        rm_insight: text || 'No se encontraron eventos.'
+      })
+    }
+
+    const data = JSON.parse(match[0])
+    return res.status(200).json(data)
 
   } catch (err) {
-    return res.status(500).json({ error: err.message, details: err.error })
+    console.error(err)
+    return res.status(500).json({ error: err.message })
   }
 }
