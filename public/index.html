@@ -133,13 +133,13 @@
     </div>
     <div class="options-row">
       <div class="opt-group">
-        <span class="opt-label">Período</span>
-        <select class="opt-select" id="periodo">
-          <option value="30">30 días</option>
-          <option value="60" selected>60 días</option>
-          <option value="90">90 días</option>
-        </select>
-      </div>
+        <span class="opt-label">Desde</span>
+        <input type="date" class="opt-select" id="fechaDesde" style="cursor:pointer">
+        </div>
+        <div class="opt-group">
+        <span class="opt-label">Hasta</span>
+        <input type="date" class="opt-select" id="fechaHasta" style="cursor:pointer">
+    </div>
       <div class="opt-group">
         <span class="opt-label">Foco RM</span>
         <select class="opt-select" id="foco">
@@ -298,7 +298,11 @@
     const dest = document.getElementById('destInput').value.trim();
     if (!dest) return;
 
-    const dias = document.getElementById('periodo').value;
+    const fechaDesde = document.getElementById('fechaDesde').value;
+    const fechaHasta = document.getElementById('fechaHasta').value;
+    const dias = fechaDesde && fechaHasta
+  ? `desde el ${fechaDesde} hasta el ${fechaHasta}`
+  : '60';
     const foco = document.getElementById('foco').value;
     const idioma = document.getElementById('idioma').value;
     const focoMap = {
@@ -329,7 +333,8 @@
       const res = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ destination: dest, dias, foco, idioma })
+        body: JSON.stringify({ destination: dest, dias, foco, idioma, fechaDesde, fechaHasta })
+
         });
 
       if (!res.ok) {
@@ -406,6 +411,14 @@
         </div>
       </div>`).join('');
   }
+
+  // Inicializar fechas
+const hoy = new Date();
+const en60 = new Date();
+en60.setDate(hoy.getDate() + 60);
+const fmt = d => d.toISOString().split('T')[0];
+document.getElementById('fechaDesde').value = fmt(hoy);
+document.getElementById('fechaHasta').value = fmt(en60);
 </script>
 </body>
 </html>
