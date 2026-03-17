@@ -7,10 +7,6 @@ export default async function handler(req, res) {
 
   const { prompt } = req.body
 
-  if (!prompt) {
-    return res.status(400).json({ error: 'Missing prompt' })
-  }
-
   try {
     const client = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY
@@ -23,23 +19,15 @@ export default async function handler(req, res) {
       messages: [{ role: 'user', content: prompt }]
     })
 
-    const textBlock = response.content.find(b => b.type === 'text')
-    const text = textBlock ? textBlock.text : ''
-
-    const match = text.match(/\{[\s\S]*\}/)
-    if (!match) {
-      return res.status(200).json({ 
-        destination: 'Sin resultados',
-        events: [],
-        rm_insight: text || 'No se encontraron eventos.'
-      })
-    }
-
-    const data = JSON.parse(match[0])
-    return res.status(200).json(data)
+    // Devolver la respuesta completa para debug
+    return res.status(200).json({
+      contentBlocks: response.content.length,
+      types: response.content.map(b => b.type),
+      rawText: response.content.find(b => b.type === 'text')?.text || 'SIN TEXTO',
+      stopReason: response.stop_reason
+    })
 
   } catch (err) {
-    console.error(err)
-    return res.status(500).json({ error: err.message })
+    return res.status(500).json({ error: err.message, details: err.error })
   }
 }
