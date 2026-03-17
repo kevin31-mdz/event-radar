@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Event Radar — Revenue Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0c0c10; --surface: #15151c; --surface2: #1e1e28; --surface3: #26262f;
+    --accent: #e8c547; --accent2: #7eb8f7; --text: #f2f0f9; --muted: #7a7890;
+    --muted2: #4a4860; --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.12);
+    --radius: 14px; --radius-sm: 8px;
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 15px; }
+  header { border-bottom: 1px solid var(--border); padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: rgba(12,12,16,0.92); backdrop-filter: blur(12px); z-index: 100; }
+  .logo { display: flex; align-items: baseline; gap: 10px; }
+  .logo-name { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--text); }
+  .logo-dot { width: 7px; height: 7px; background: var(--accent); border-radius: 50%; margin-bottom: 2px; flex-shrink: 0; }
+  .logo-tag { font-size: 10px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+  .header-meta { font-size: 11px; color: var(--muted); }
+  .container { max-width: 900px; margin: 0 auto; padding: 40px 24px 80px; }
+  .hero { margin-bottom: 40px; }
+  .hero h1 { font-family: 'DM Serif Display', serif; font-size: clamp(32px, 5vw, 48px); line-height: 1.15; color: var(--text); margin-bottom: 12px; letter-spacing: -0.5px; }
+  .hero h1 em { font-style: italic; color: var(--accent); }
+  .hero p { color: var(--muted); font-size: 14px; font-weight: 300; max-width: 520px; }
+  .search-card { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); padding: 24px; margin-bottom: 28px; }
+  .search-top { display: flex; gap: 10px; margin-bottom: 16px; }
+  .input-wrap { flex: 1; position: relative; }
+  .input-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+  .dest-input { width: 100%; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 13px 16px 13px 40px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 15px; outline: none; transition: border-color 0.2s; }
+  .dest-input::placeholder { color: var(--muted2); }
+  .dest-input:focus { border-color: var(--accent); }
+  .search-btn { background: var(--accent); color: #0c0c10; border: none; border-radius: var(--radius-sm); padding: 13px 22px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity 0.2s; white-space: nowrap; }
+  .search-btn:hover { opacity: 0.88; }
+  .search-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .options-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; padding-top: 16px; border-top: 1px solid var(--border); }
+  .opt-group { display: flex; align-items: center; gap: 8px; }
+  .opt-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; white-space: nowrap; }
+  .opt-select { background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 6px 10px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 12px; cursor: pointer; outline: none; }
+  .section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); font-weight: 500; }
+  .section-line { flex: 1; height: 1px; background: var(--border); }
+  .regions-grid { display: flex; flex-direction: column; gap: 10px; margin-bottom: 40px; }
+  .region-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .region-label { font-size: 10px; color: var(--muted2); text-transform: uppercase; letter-spacing: 1.5px; min-width: 70px; font-weight: 500; }
+  .chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 5px 13px; font-size: 12px; color: var(--muted); cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; white-space: nowrap; }
+  .chip:hover { border-color: var(--accent); color: var(--accent); background: rgba(232,197,71,0.06); }
+  .loading { display: none; text-align: center; padding: 60px 20px; }
+  .loading.active { display: block; }
+  .spinner { width: 36px; height: 36px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 13px; color: var(--muted); }
+  .loading-dest { color: var(--accent); font-weight: 500; }
+  #results { display: none; }
+  #results.active { display: block; }
+  .results-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .results-dest { font-family: 'DM Serif Display', serif; font-size: 24px; color: var(--text); }
+  .results-meta { font-size: 12px; color: var(--muted); }
+  .back-btn { background: none; border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 6px 14px; color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+  .back-btn:hover { color: var(--text); border-color: var(--border); }
+  .filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+  .filter-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px; font-size: 11px; color: var(--muted); cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
+  .filter-btn:hover, .filter-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(232,197,71,0.06); }
+  .events-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 28px; }
+  .event-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; display: grid; grid-template-columns: 56px 1fr auto; gap: 14px; align-items: start; opacity: 0; transform: translateY(8px); animation: fadeUp 0.3s ease forwards; transition: border-color 0.2s; }
+  .event-card:hover { border-color: var(--border2); }
+  .event-card.high-impact { border-left: 3px solid var(--accent); }
+  @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+  .date-box { background: var(--surface2); border-radius: var(--radius-sm); text-align: center; padding: 8px 4px; border: 1px solid var(--border); }
+  .date-day { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--accent); line-height: 1; }
+  .date-mon { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+  .event-name { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 3px; line-height: 1.35; }
+  .event-venue { font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+  .event-impact { font-size: 12px; color: var(--muted); line-height: 1.5; border-top: 1px solid var(--border); padding-top: 6px; margin-top: 4px; }
+  .event-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .cat-tag { border-radius: 20px; padding: 3px 10px; font-size: 10px; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap; }
+  .cat-music { background: rgba(126,184,247,0.12); color: #7eb8f7; border: 1px solid rgba(126,184,247,0.2); }
+  .cat-sport { background: rgba(98,210,140,0.12); color: #62d28c; border: 1px solid rgba(98,210,140,0.2); }
+  .cat-cultural { background: rgba(232,197,71,0.1); color: #e8c547; border: 1px solid rgba(232,197,71,0.2); }
+  .cat-mice { background: rgba(183,140,247,0.12); color: #b78cf7; border: 1px solid rgba(183,140,247,0.2); }
+  .cat-gastro { background: rgba(247,140,140,0.12); color: #f78c8c; border: 1px solid rgba(247,140,140,0.2); }
+  .cat-festivo { background: rgba(247,180,100,0.12); color: #f7b464; border: 1px solid rgba(247,180,100,0.2); }
+  .cat-other { background: rgba(120,120,140,0.12); color: var(--muted); border: 1px solid var(--border); }
+  .impact-badge { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+  .impact-alto { background: rgba(232,197,71,0.12); color: var(--accent); border: 1px solid rgba(232,197,71,0.25); }
+  .impact-medio { background: rgba(120,120,140,0.12); color: var(--muted); border: 1px solid var(--border); }
+  .rm-insight { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); padding: 22px 24px; margin-top: 8px; }
+  .insight-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .insight-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; }
+  .insight-title { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--accent); font-weight: 500; }
+  .insight-content { font-size: 13px; color: #c8c6d8; line-height: 1.75; white-space: pre-wrap; }
+  .error-box { display: none; background: rgba(247,140,140,0.06); border: 1px solid rgba(247,140,140,0.2); border-radius: var(--radius); padding: 20px 24px; color: #f78c8c; font-size: 13px; text-align: center; }
+  .error-box.active { display: block; }
+  footer { border-top: 1px solid var(--border); padding: 20px 32px; text-align: center; font-size: 11px; color: var(--muted2); }
+  @media (max-width: 600px) {
+    header { padding: 16px 20px; }
+    .container { padding: 24px 16px 60px; }
+    .search-top { flex-direction: column; }
+    .search-btn { width: 100%; }
+    .event-card { grid-template-columns: 48px 1fr; }
+    .event-right { flex-direction: row; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-name">Event Radar</span>
+    <div class="logo-dot"></div>
+    <span class="logo-tag">Revenue Intelligence</span>
+  </div>
+  <span class="header-meta" id="todayDate"></span>
+</header>
+
+<div class="container">
+  <div class="hero">
+    <h1>Próximos eventos,<br><em>cualquier destino.</em></h1>
+    <p>Buscá eventos en tiempo real en cualquier ciudad del mundo y recibí un análisis de impacto para tu estrategia de revenue management.</p>
+  </div>
+
+  <div class="search-card">
+    <div class="search-top">
+      <div class="input-wrap">
+        <span class="input-icon">⌖</span>
+        <input class="dest-input" id="destInput" type="text"
+          placeholder="Ciudad, región o país — ej: Tokyo, Dubai, Londres, Cartagena..."
+          onkeydown="if(event.key==='Enter') triggerSearch()" autocomplete="off">
+      </div>
+      <button class="search-btn" id="searchBtn" onclick="triggerSearch()">Buscar eventos ↗</button>
+    </div>
+    <div class="options-row">
+      <div class="opt-group">
+        <span class="opt-label">Período</span>
+        <select class="opt-select" id="periodo">
+          <option value="30">30 días</option>
+          <option value="60" selected>60 días</option>
+          <option value="90">90 días</option>
+        </select>
+      </div>
+      <div class="opt-group">
+        <span class="opt-label">Foco RM</span>
+        <select class="opt-select" id="foco">
+          <option value="general" selected>General</option>
+          <option value="leisure">Leisure</option>
+          <option value="mice">Corporate / MICE</option>
+          <option value="grupos">Grupos</option>
+        </select>
+      </div>
+      <div class="opt-group">
+        <span class="opt-label">Idioma</span>
+        <select class="opt-select" id="idioma">
+          <option value="español" selected>Español</option>
+          <option value="inglés">Inglés</option>
+          <option value="portugués">Portugués</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div id="quickSection">
+    <div class="section-header">
+      <span class="section-title">Accesos rápidos</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="regions-grid">
+      <div class="region-row">
+        <span class="region-label">LATAM</span>
+        <span class="chip" onclick="go('Buenos Aires')">Buenos Aires</span>
+        <span class="chip" onclick="go('Río de Janeiro')">Río de Janeiro</span>
+        <span class="chip" onclick="go('Ciudad de México')">Ciudad de México</span>
+        <span class="chip" onclick="go('Bogotá')">Bogotá</span>
+        <span class="chip" onclick="go('Santiago de Chile')">Santiago</span>
+        <span class="chip" onclick="go('Lima')">Lima</span>
+      </div>
+      <div class="region-row">
+        <span class="region-label">Europa</span>
+        <span class="chip" onclick="go('Barcelona')">Barcelona</span>
+        <span class="chip" onclick="go('Londres')">Londres</span>
+        <span class="chip" onclick="go('París')">París</span>
+        <span class="chip" onclick="go('Ámsterdam')">Ámsterdam</span>
+        <span class="chip" onclick="go('Berlín')">Berlín</span>
+        <span class="chip" onclick="go('Roma')">Roma</span>
+      </div>
+      <div class="region-row">
+        <span class="region-label">Norteamérica</span>
+        <span class="chip" onclick="go('Nueva York')">Nueva York</span>
+        <span class="chip" onclick="go('Las Vegas')">Las Vegas</span>
+        <span class="chip" onclick="go('Miami')">Miami</span>
+        <span class="chip" onclick="go('Los Ángeles')">Los Ángeles</span>
+        <span class="chip" onclick="go('Chicago')">Chicago</span>
+      </div>
+      <div class="region-row">
+        <span class="region-label">Asia / ME</span>
+        <span class="chip" onclick="go('Dubai')">Dubai</span>
+        <span class="chip" onclick="go('Tokyo')">Tokyo</span>
+        <span class="chip" onclick="go('Singapur')">Singapur</span>
+        <span class="chip" onclick="go('Bangkok')">Bangkok</span>
+        <span class="chip" onclick="go('Seúl')">Seúl</span>
+      </div>
+      <div class="region-row">
+        <span class="region-label">Argentina</span>
+        <span class="chip" onclick="go('Mendoza')">Mendoza</span>
+        <span class="chip" onclick="go('Bariloche')">Bariloche</span>
+        <span class="chip" onclick="go('Córdoba')">Córdoba</span>
+        <span class="chip" onclick="go('Salta')">Salta</span>
+        <span class="chip" onclick="go('Mar del Plata')">Mar del Plata</span>
+        <span class="chip" onclick="go('Ushuaia')">Ushuaia</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p class="loading-text">Buscando eventos en <span class="loading-dest" id="loadingDest"></span>...</p>
+  </div>
+
+  <div class="error-box" id="errorBox">
+    No se pudieron obtener resultados. Verificá tu conexión e intentá de nuevo.
+    <br><small id="errorDetail" style="opacity:0.6;margin-top:4px;display:block"></small>
+  </div>
+
+  <div id="results">
+    <div class="results-bar">
+      <span class="results-dest" id="resultsTitle"></span>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span class="results-meta" id="resultsMeta"></span>
+        <button class="back-btn" onclick="goBack()">← Nueva búsqueda</button>
+      </div>
+    </div>
+    <div class="filter-bar" id="filterBar"></div>
+    <div class="events-list" id="eventsList"></div>
+    <div class="rm-insight" id="rmInsight" style="display:none">
+      <div class="insight-header">
+        <div class="insight-dot"></div>
+        <span class="insight-title">Revenue Insight</span>
+      </div>
+      <div class="insight-content" id="insightText"></div>
+    </div>
+  </div>
+</div>
+
+<footer>Event Radar · Revenue Intelligence Tool · Datos en tiempo real</footer>
+
+<script>
+  document.getElementById('todayDate').textContent =
+    new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  let allEvents = [];
+  let activeFilter = 'todos';
+
+  function go(dest) {
+    document.getElementById('destInput').value = dest;
+    triggerSearch();
+  }
+
+  function goBack() {
+    document.getElementById('results').style.display = 'none';
+    document.getElementById('quickSection').style.display = 'block';
+    document.getElementById('errorBox').classList.remove('active');
+    document.getElementById('destInput').value = '';
+  }
+
+  async function triggerSearch() {
+    const dest = document.getElementById('destInput').value.trim();
+    if (!dest) return;
+
+    const dias = document.getElementById('periodo').value;
+    const foco = document.getElementById('foco').value;
+    const idioma = document.getElementById('idioma').value;
+    const focoMap = {
+      general: 'impacto general en demanda hotelera',
+      leisure: 'segmento leisure y turismo vacacional',
+      mice: 'segmento corporativo, congresos y ferias MICE',
+      grupos: 'grupos, agencias y turismo emisivo'
+    };
+
+    const btn = document.getElementById('searchBtn');
+    btn.disabled = true;
+    btn.textContent = 'Buscando...';
+    document.getElementById('quickSection').style.display = 'none';
+    document.getElementById('results').style.display = 'none';
+    document.getElementById('errorBox').classList.remove('active');
+    document.getElementById('loading').classList.add('active');
+    document.getElementById('loadingDest').textContent = dest;
+
+    const prompt =
+      `Buscá en la web todos los eventos confirmados en ${dest} durante los próximos ${dias} días desde hoy. ` +
+      `Incluí recitales, festivales, eventos deportivos, ferias, congresos, festividades, carnavales, ` +
+      `semanas de moda, gastronomía y cualquier evento que genere demanda hotelera. ` +
+      `Devolvé ÚNICAMENTE un bloque JSON válido sin markdown ni texto extra con este formato: ` +
+      `{"destination":"${dest}","events":[{"name":"nombre","day":"DD","month":"abreviatura 3 letras mayúsculas en ${idioma}","category":"music|sport|cultural|mice|gastro|festivo|other","venue":"lugar","capacity":"aforo o vacío","impact":"impacto RM en 1 línea","importance":"high|medium"}],"rm_insight":"análisis de ${focoMap[foco]} en 3-5 oraciones"}. ` +
+      `Respondé en ${idioma}. Ordenar por fecha.`;
+
+    try {
+      const res = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Error del servidor');
+      }
+
+      const data = await res.json();
+      renderResults(data);
+
+    } catch (err) {
+      document.getElementById('loading').classList.remove('active');
+      document.getElementById('errorBox').classList.add('active');
+      document.getElementById('errorDetail').textContent = err.message;
+      document.getElementById('quickSection').style.display = 'block';
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Buscar eventos ↗';
+  }
+
+  function renderResults(data) {
+    document.getElementById('loading').classList.remove('active');
+    allEvents = data.events || [];
+    activeFilter = 'todos';
+
+    document.getElementById('resultsTitle').textContent = data.destination || '';
+    document.getElementById('resultsMeta').textContent = `${allEvents.length} eventos encontrados`;
+
+    buildFilters(allEvents);
+    renderCards(allEvents);
+
+    if (data.rm_insight) {
+      document.getElementById('insightText').textContent = data.rm_insight;
+      document.getElementById('rmInsight').style.display = 'block';
+    } else {
+      document.getElementById('rmInsight').style.display = 'none';
+    }
+
+    document.getElementById('results').style.display = 'block';
+  }
+
+  function buildFilters(events) {
+    const cats = ['todos', ...new Set(events.map(e => e.category).filter(Boolean))];
+    const catLabels = { todos: 'Todos', music: 'Música', sport: 'Deporte', cultural: 'Cultural', mice: 'MICE', gastro: 'Gastronomía', festivo: 'Festivos', other: 'Otros' };
+    document.getElementById('filterBar').innerHTML = cats.map(c =>
+      `<button class="filter-btn ${c === activeFilter ? 'active' : ''}" onclick="applyFilter('${c}')">${catLabels[c] || c}</button>`
+    ).join('');
+  }
+
+  function applyFilter(cat) {
+    activeFilter = cat;
+    buildFilters(allEvents);
+    renderCards(cat === 'todos' ? allEvents : allEvents.filter(e => e.category === cat));
+  }
+
+  function renderCards(events) {
+    const catClass = { music:'cat-music', sport:'cat-sport', cultural:'cat-cultural', mice:'cat-mice', gastro:'cat-gastro', festivo:'cat-festivo', other:'cat-other' };
+    const catLabel = { music:'Música', sport:'Deporte', cultural:'Cultural', mice:'MICE', gastro:'Gastronomía', festivo:'Festivo', other:'Evento' };
+    document.getElementById('eventsList').innerHTML = events.map((ev, i) => `
+      <div class="event-card ${ev.importance === 'high' ? 'high-impact' : ''}" style="animation-delay:${(i*0.04).toFixed(2)}s">
+        <div class="date-box">
+          <div class="date-day">${ev.day || '?'}</div>
+          <div class="date-mon">${ev.month || '?'}</div>
+        </div>
+        <div>
+          <div class="event-name">${ev.name || ''}</div>
+          ${ev.venue ? `<div class="event-venue">${ev.venue}${ev.capacity ? ' · ' + ev.capacity : ''}</div>` : ''}
+          ${ev.impact ? `<div class="event-impact">${ev.impact}</div>` : ''}
+        </div>
+        <div class="event-right">
+          <span class="cat-tag ${catClass[ev.category] || 'cat-other'}">${catLabel[ev.category] || 'Evento'}</span>
+          <span class="impact-badge ${ev.importance === 'high' ? 'impact-alto' : 'impact-medio'}">${ev.importance === 'high' ? 'Alto impacto' : 'Medio'}</span>
+        </div>
+      </div>`).join('');
+  }
+</script>
+</body>
+</html>
