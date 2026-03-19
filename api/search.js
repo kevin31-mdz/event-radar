@@ -14,13 +14,15 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         tools: [{ google_search: {} }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 4096, responseMimeType: 'application/json' }
+        generationConfig: { temperature: 0.1, maxOutputTokens: 4096 }
       })
     })
     const geminiData = await geminiRes.json()
     if (geminiData.error) return res.status(500).json({ error: 'Gemini: ' + geminiData.error.message })
-    const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || ''
-    // Limpiar markdown si existe
+    // Juntar todos los text parts
+    const parts = geminiData.candidates?.[0]?.content?.parts || []
+    const text = parts.filter(p => p.text).map(p => p.text).join('')
+    // Limpiar markdown
     const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
     const match = clean.match(/\{[\s\S]*\}/)
     if (!match) return res.status(200).json({ destination, events: [], rm_insight: clean || 'No se encontraron eventos.' })
