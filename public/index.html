@@ -156,6 +156,33 @@
     footer { padding: 16px 20px; }
     .header-date { display: none; }
   }
+
+  .visual-summary { padding: 20px 40px; background: #fff; border-bottom: 1px solid var(--border); display: none; }
+  .visual-summary.active { display: block; }
+  .vs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .vs-card { background: var(--surface); border-radius: var(--radius); padding: 16px; }
+  .vs-title { font-family: 'Montserrat', sans-serif; font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; }
+  .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .bar-label { font-size: 11px; color: var(--accent-light); min-width: 80px; font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .bar-track { flex: 1; background: var(--border); border-radius: 2px; height: 6px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+  .bar-count { font-size: 11px; color: var(--muted); min-width: 20px; text-align: right; font-family: 'Montserrat', sans-serif; font-weight: 600; }
+  .timeline-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tl-month { flex: 1; min-width: 50px; }
+  .tl-label { font-family: 'Montserrat', sans-serif; font-size: 8px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; text-align: center; margin-bottom: 4px; }
+  .tl-bar { border-radius: 2px; background: var(--accent); min-height: 4px; transition: height 0.6s ease; }
+  .tl-count { font-family: 'Montserrat', sans-serif; font-size: 9px; font-weight: 700; color: var(--accent); text-align: center; margin-top: 3px; }
+  .impact-row { display: flex; gap: 8px; }
+  .impact-pill { flex: 1; text-align: center; padding: 10px 8px; border-radius: var(--radius); }
+  .impact-pill .num { font-family: 'Montserrat', sans-serif; font-size: 22px; font-weight: 700; line-height: 1; }
+  .impact-pill .lbl { font-family: 'Montserrat', sans-serif; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-top: 3px; }
+  .impact-high { background: var(--accent); color: #fff; }
+  .impact-med { background: var(--surface2); color: var(--accent-light); }
+  @media (max-width: 640px) {
+    .visual-summary { padding: 16px 20px; }
+    .vs-grid { grid-template-columns: 1fr; gap: 12px; }
+  }
+
 </style>
 </head>
 <body>
@@ -298,6 +325,27 @@
     </div>
     <button class="back-btn" onclick="goBack()">← Nueva búsqueda</button>
   </div>
+  <div class="visual-summary" id="visualSummary">
+    <div class="vs-grid">
+      <div class="vs-card">
+        <div class="vs-title">Eventos por categoría</div>
+        <div id="catBars"></div>
+      </div>
+      <div class="vs-card">
+        <div class="vs-title">Distribución por mes</div>
+        <div class="timeline-row" id="monthBars"></div>
+      </div>
+      <div class="vs-card">
+        <div class="vs-title">Impacto hotelero</div>
+        <div class="impact-row" id="impactPills"></div>
+      </div>
+      <div class="vs-card">
+        <div class="vs-title">Próximo evento destacado</div>
+        <div id="nextEvent" style="font-size:13px;color:var(--text);line-height:1.5"></div>
+      </div>
+    </div>
+  </div>
+
   <div class="filter-bar" id="filterBar"></div>
   <div class="events-container">
     <div class="events-list" id="eventsList"></div>
@@ -366,6 +414,7 @@
     document.getElementById('destInput').value = ''
     document.getElementById('fechaDesde').value = ''
     document.getElementById('fechaHasta').value = ''
+    document.getElementById('visualSummary').classList.remove('active')
     initDates()
   }
 
@@ -425,6 +474,58 @@
     btn.textContent = 'Buscar eventos →'
   }
 
+
+  function renderVisuals(events) {
+    const catMap = { music:'Música', sport:'Deporte', cultural:'Cultural', mice:'MICE', gastro:'Gastro', festivo:'Festivo', other:'Otros' }
+    const catColors = { music:'#1a56cc', sport:'#1e7e34', cultural:'#b7860b', mice:'#6f3aad', gastro:'#c0392b', festivo:'#e65100', other:'#888' }
+    const MONTH_NAMES = { ene:'Ene', feb:'Feb', mar:'Mar', abr:'Abr', may:'May', jun:'Jun', jul:'Jul', ago:'Ago', sep:'Sep', oct:'Oct', nov:'Nov', dic:'Dic' }
+
+    // Categorías
+    const catCount = {}
+    events.forEach(e => { const c = e.category||'other'; catCount[c] = (catCount[c]||0) + 1 })
+    const maxCat = Math.max(...Object.values(catCount), 1)
+    document.getElementById('catBars').innerHTML = Object.entries(catCount)
+      .sort((a,b) => b[1]-a[1])
+      .map(([cat, count]) => `
+        <div class="bar-row">
+          <span class="bar-label">${catMap[cat]||cat}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${(count/maxCat*100).toFixed(0)}%;background:${catColors[cat]||'#888'}"></div></div>
+          <span class="bar-count">${count}</span>
+        </div>`).join('')
+
+    // Meses
+    const monthCount = {}
+    events.forEach(e => {
+      const m = (e.month||'').toLowerCase().substring(0,3)
+      if (m) monthCount[m] = (monthCount[m]||0) + 1
+    })
+    const maxMonth = Math.max(...Object.values(monthCount), 1)
+    const monthOrder = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+    const activeMonths = monthOrder.filter(m => monthCount[m])
+    document.getElementById('monthBars').innerHTML = activeMonths.map(m => `
+      <div class="tl-month">
+        <div class="tl-label">${MONTH_NAMES[m]||m}</div>
+        <div class="tl-bar" style="height:${Math.max(4, (monthCount[m]/maxMonth*40)).toFixed(0)}px"></div>
+        <div class="tl-count">${monthCount[m]}</div>
+      </div>`).join('')
+
+    // Impacto
+    const high = events.filter(e => e.importance === 'high').length
+    const med = events.length - high
+    document.getElementById('impactPills').innerHTML = `
+      <div class="impact-pill impact-high"><div class="num">${high}</div><div class="lbl">Alto impacto</div></div>
+      <div class="impact-pill impact-med"><div class="num">${med}</div><div class="lbl">Medio</div></div>`
+
+    // Próximo evento destacado
+    const next = events.find(e => e.importance === 'high') || events[0]
+    document.getElementById('nextEvent').innerHTML = next ? `
+      <div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:0.5px">${next.name}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:3px">${next.day} ${next.month} · ${next.venue||''}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">${next.impact||''}</div>` : ''
+
+    document.getElementById('visualSummary').classList.add('active')
+  }
+
   function renderResults(data) {
     document.getElementById('loading').classList.remove('active')
     allEvents = sortEvents(data.events || [])
@@ -446,6 +547,7 @@
     document.getElementById('resultsMeta').textContent = allEvents.length + ' EVENTOS ENCONTRADOS'
     buildFilters(allEvents)
     renderCards(allEvents)
+    renderVisuals(allEvents)
 
     if (data.rm_insight) {
       document.getElementById('insightText').textContent = data.rm_insight
