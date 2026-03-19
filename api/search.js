@@ -1,5 +1,5 @@
 const cache = new Map()
-const CACHE_TTL = 6 * 60 * 60 * 1000
+const CACHE_TTL = 12 * 60 * 60 * 1000
 const rateLimit = new Map()
 const MAX_REQUESTS = 25
 const WINDOW_MS = 4 * 60 * 60 * 1000
@@ -86,26 +86,27 @@ export default async function handler(req, res) {
 
   const focoMap = { general: 'impacto general en demanda hotelera', leisure: 'segmento leisure y turismo vacacional', mice: 'segmento corporativo, congresos y ferias MICE', grupos: 'grupos, agencias y turismo emisivo' }
   const hoy = new Date().toISOString().split('T')[0]
+  const lang = idioma || 'español'
 
-  const prompt = `Usá Google Search para buscar TODOS los eventos en ${destination} para el período ${dias}.
+  const prompt = `Buscá en internet usando Google Search TODOS los eventos en ${destination} para el período ${dias}.
 
-Buscá específicamente:
-- Recitales y conciertos confirmados
-- Festivales de música
-- Partidos de fútbol y eventos deportivos importantes
+IMPORTANTE: Solo eventos que ocurran FÍSICAMENTE en ${destination}. NO incluyas eventos de otras ciudades.
+
+Buscá:
+- Recitales, conciertos y festivales de música
+- Partidos de fútbol y eventos deportivos
 - Ferias, exposiciones y congresos
 - Feriados nacionales y puentes
 - Festividades culturales y religiosas
 - Maratones y eventos masivos
 
-Hoy es ${hoy}. Solo incluí eventos FUTUROS (fecha mayor a ${hoy}).
+Hoy es ${hoy}. Solo eventos con fecha posterior a ${hoy}.
+Encontrá AL MENOS 10 eventos si existen en ${destination}.
 
-Debés encontrar AL MENOS 10 eventos si los hay. Buscá en múltiples fuentes.
+Respondé SOLO con JSON sin markdown, sin comillas dobles dentro de valores de texto:
+{"destination":"${destination}","events":[{"name":"nombre","day":"DD","month":"MMM mayúsculas en ${lang}","year":"YYYY","category":"music|sport|cultural|mice|gastro|festivo|other","venue":"lugar en ${destination}","capacity":"aforo","impact":"impacto hotelero breve","importance":"high|medium"}],"rm_insight":"2 oraciones sobre ${focoMap[foco]||'impacto hotelero'} en ${destination}"}
 
-Respondé SOLO con este JSON sin markdown, sin texto extra, sin comillas dobles dentro de valores:
-{"destination":"${destination}","events":[{"name":"nombre","day":"DD","month":"MMM en ${idioma||'español'} mayúsculas","year":"YYYY","category":"music|sport|cultural|mice|gastro|festivo|other","venue":"lugar","capacity":"aforo o vacio","impact":"impacto hotelero breve","importance":"high|medium"}],"rm_insight":"2 oraciones sobre ${focoMap[foco]||'impacto hotelero'}"}
-
-Respondé en ${idioma||'español'}.`
+Respondé en ${lang}.`
 
   try {
     const geminiRes = await fetch(
@@ -120,14 +121,32 @@ Respondé en ${idioma||'español'}.`
         })
       }
     )
+
     const geminiData = await geminiRes.json()
     if (geminiData.error) return res.status(500).json({ error: 'Gemini: ' + geminiData.error.message })
+
     const parts = geminiData.candidates?.[0]?.content?.parts || []
     const text = parts.filter(p => p.text).map(p => p.text).join('')
     const data = safeParseJSON(text)
+
     if (!data || !data.events) return res.status(200).json({ destination, events: [], rm_insight: 'No se pudieron procesar los eventos.' })
-    if (data.events.length > 0) setCache(cacheKey, data)
-    return res.status(200).json(data)
+
+    // Filtrar eventos que mencionen otra ciudad en el venue
+    const destLower = destination.toLowerCase()
+    const filtered = data.events.filter(ev => {
+      const venue = (ev.venue || '').toLowerCase()
+      // Si el venue menciona explícitamente otra ciudad conocida, excluirlo
+      const otherCities = ['buenos aires', 'montevideo', 'santiago', 'lima', 'bogota', 'rio de janeiro', 'sao paulo', 'ciudad de mexico', 'madrid', 'barcelona']
+      for (const city of otherCities) {
+        if (city !== destLower && venue.includes(city)) return false
+      }
+      return true
+    })
+
+    const result = { destination, events: filtered, rm_insight: data.rm_insight || '' }
+    if (filtered.length > 0) setCache(cacheKey, result)
+    return res.status(200).json(result)
+
   } catch (err) {
     return res.status(500).json({ error: err.message })
   }
