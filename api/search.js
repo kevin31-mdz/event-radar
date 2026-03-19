@@ -14,7 +14,9 @@ function checkRateLimit(ip) {
   return true
 }
 
-function getCacheKey(d, dias, f, i) { return `${d.toLowerCase().trim()}|${dias}|${f}|${i}` }
+function getCacheKey(destination, dias, foco, idioma) {
+  return `${destination.toLowerCase().trim()}|${dias}|${foco}|${idioma}`
+}
 
 function getFromCache(key) {
   const entry = cache.get(key)
@@ -48,7 +50,9 @@ function safeParseJSON(text) {
     const arrStart = clean.indexOf('[', evStart)
     if (arrStart === -1) return null
     const events = []
-    let pos = arrStart + 1, depth = 0, objStart = -1
+    let pos = arrStart + 1
+    let depth = 0
+    let objStart = -1
     while (pos < clean.length) {
       const ch = clean[pos]
       if (ch === '{') { depth++; if (depth === 1) objStart = pos }
@@ -87,25 +91,12 @@ export default async function handler(req, res) {
   const focoMap = { general: 'impacto general en demanda hotelera', leisure: 'segmento leisure y turismo vacacional', mice: 'segmento corporativo, congresos y ferias MICE', grupos: 'grupos, agencias y turismo emisivo' }
   const hoy = new Date().toISOString().split('T')[0]
 
-  const prompt = `Usá Google Search para buscar TODOS los eventos en ${destination} para el período ${dias}.
+  const prompt = `Buscá en internet eventos confirmados en ${destination} para el período ${dias}. Incluí conciertos, festivales, deportes, ferias, congresos, feriados y festividades. Solo eventos con fecha ${hoy} o posterior.
 
-Buscá específicamente:
-- Recitales y conciertos confirmados
-- Festivales de música
-- Partidos de fútbol y eventos deportivos importantes
-- Ferias, exposiciones y congresos
-- Feriados nacionales y puentes
-- Festividades culturales y religiosas
-- Maratones y eventos masivos
+Respondé ÚNICAMENTE con JSON puro sin markdown ni texto extra:
+{"destination":"${destination}","events":[{"name":"nombre sin comillas dobles internas","day":"DD","month":"MMM mayúsculas en ${idioma||'español'}","year":"YYYY","category":"music|sport|cultural|mice|gastro|festivo|other","venue":"lugar sin comillas dobles","capacity":"aforo","impact":"impacto hotelero corto","importance":"high|medium"}],"rm_insight":"análisis corto en 2 oraciones sin comillas dobles internas"}
 
-Hoy es ${hoy}. Solo incluí eventos FUTUROS (fecha mayor a ${hoy}).
-
-Debés encontrar AL MENOS 10 eventos si los hay. Buscá en múltiples fuentes.
-
-Respondé SOLO con este JSON sin markdown, sin texto extra, sin comillas dobles dentro de valores:
-{"destination":"${destination}","events":[{"name":"nombre","day":"DD","month":"MMM en ${idioma||'español'} mayúsculas","year":"YYYY","category":"music|sport|cultural|mice|gastro|festivo|other","venue":"lugar","capacity":"aforo o vacio","impact":"impacto hotelero breve","importance":"high|medium"}],"rm_insight":"2 oraciones sobre ${focoMap[foco]||'impacto hotelero'}"}
-
-Respondé en ${idioma||'español'}.`
+IMPORTANTE: No uses comillas dobles dentro de los valores de texto. Usá comillas simples si necesitás. Respondé en ${idioma||'español'}.`
 
   try {
     const geminiRes = await fetch(
@@ -116,7 +107,7 @@ Respondé en ${idioma||'español'}.`
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           tools: [{ google_search: {} }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 8192 }
+          generationConfig: { temperature: 0.1, maxOutputTokens: 4096 }
         })
       }
     )
@@ -125,7 +116,7 @@ Respondé en ${idioma||'español'}.`
     const parts = geminiData.candidates?.[0]?.content?.parts || []
     const text = parts.filter(p => p.text).map(p => p.text).join('')
     const data = safeParseJSON(text)
-    if (!data || !data.events) return res.status(200).json({ destination, events: [], rm_insight: 'No se pudieron procesar los eventos.' })
+    if (!data || !data.events) return res.status(200).json({ destination, events: [], rm_insight: 'No se pudieron procesar los eventos encontrados.' })
     if (data.events.length > 0) setCache(cacheKey, data)
     return res.status(200).json(data)
   } catch (err) {
