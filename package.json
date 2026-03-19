@@ -1,11 +1,7 @@
 {
   "name": "event-radar",
   "version": "1.0.0",
-  "type": "module",
   "scripts": {
     "dev": "vercel dev"
   },
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0"
-  }
 }
