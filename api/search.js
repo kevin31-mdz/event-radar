@@ -14,9 +14,7 @@ function checkRateLimit(ip) {
   return true
 }
 
-function getCacheKey(destination, dias, foco, idioma) {
-  return `${destination.toLowerCase().trim()}|${dias}|${foco}|${idioma}`
-}
+function getCacheKey(d, dias, f, i) { return `${d.toLowerCase().trim()}|${dias}|${f}|${i}` }
 
 function getFromCache(key) {
   const entry = cache.get(key)
@@ -50,9 +48,7 @@ function safeParseJSON(text) {
     const arrStart = clean.indexOf('[', evStart)
     if (arrStart === -1) return null
     const events = []
-    let pos = arrStart + 1
-    let depth = 0
-    let objStart = -1
+    let pos = arrStart + 1, depth = 0, objStart = -1
     while (pos < clean.length) {
       const ch = clean[pos]
       if (ch === '{') { depth++; if (depth === 1) objStart = pos }
@@ -67,6 +63,49 @@ function safeParseJSON(text) {
     }
     return { destination: destMatch ? destMatch[1] : '', events, rm_insight: insightMatch ? insightMatch[1] : '' }
   } catch(e) { return null }
+}
+
+async function searchCategory(destination, dias, hoy, categoria, venues, idioma, GEMINI_KEY) {
+  const prompt = `Buscá en internet usando Google Search TODOS los eventos de ${categoria} en ${destination} para el período ${dias}.
+
+${venues ? `Buscá específicamente en estos venues/lugares: ${venues}` : ''}
+
+Hoy es ${hoy}. Solo eventos con fecha posterior a ${hoy}.
+
+Respondé SOLO con JSON sin markdown:
+{"events":[{"name":"nombre","day":"DD","month":"MMM mayúsculas en ${idioma}","year":"YYYY","category":"music|sport|cultural|mice|gastro|festivo|other","venue":"lugar","capacity":"aforo","impact":"impacto hotelero","importance":"high|medium"}]}
+
+Encontrá TODOS los eventos que puedas, mínimo 5 si existen. Respondé en ${idioma}.`
+
+  const geminiRes = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        tools: [{ google_search: {} }],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 4096 }
+      })
+    }
+  )
+
+  const data = await geminiRes.json()
+  if (data.error) return []
+  const parts = data.candidates?.[0]?.content?.parts || []
+  const text = parts.filter(p => p.text).map(p => p.text).join('')
+  const parsed = safeParseJSON(text)
+  return parsed?.events || []
+}
+
+function deduplicateEvents(events) {
+  const seen = new Set()
+  return events.filter(ev => {
+    const key = `${ev.name?.toLowerCase().trim()}|${ev.day}|${ev.month}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 export default async function handler(req, res) {
@@ -88,37 +127,59 @@ export default async function handler(req, res) {
   const cached = getFromCache(cacheKey)
   if (cached) return res.status(200).json({ ...cached, _cached: true })
 
-  const focoMap = { general: 'impacto general en demanda hotelera', leisure: 'segmento leisure y turismo vacacional', mice: 'segmento corporativo, congresos y ferias MICE', grupos: 'grupos, agencias y turismo emisivo' }
   const hoy = new Date().toISOString().split('T')[0]
+  const lang = idioma || 'español'
 
-  const prompt = `Buscá en internet eventos confirmados en ${destination} para el período ${dias}. Incluí conciertos, festivales, deportes, ferias, congresos, feriados y festividades. Solo eventos con fecha ${hoy} o posterior.
-
-Respondé ÚNICAMENTE con JSON puro sin markdown ni texto extra:
-{"destination":"${destination}","events":[{"name":"nombre sin comillas dobles internas","day":"DD","month":"MMM mayúsculas en ${idioma||'español'}","year":"YYYY","category":"music|sport|cultural|mice|gastro|festivo|other","venue":"lugar sin comillas dobles","capacity":"aforo","impact":"impacto hotelero corto","importance":"high|medium"}],"rm_insight":"análisis corto en 2 oraciones sin comillas dobles internas"}
-
-IMPORTANTE: No uses comillas dobles dentro de los valores de texto. Usá comillas simples si necesitás. Respondé en ${idioma||'español'}.`
+  const focoMap = { general: 'impacto general en demanda hotelera', leisure: 'segmento leisure y turismo vacacional', mice: 'segmento corporativo, congresos y ferias MICE', grupos: 'grupos, agencias y turismo emisivo' }
 
   try {
-    const geminiRes = await fetch(
+    // 3 búsquedas paralelas por categoría
+    const [musicEvents, sportEvents, cultureEvents] = await Promise.all([
+      searchCategory(
+        destination, dias, hoy,
+        'música y entretenimiento: recitales, conciertos, shows, festivales, teatro',
+        'Movistar Arena, Estadio River Plate, Estadio Vélez, Luna Park, Obras Sanitarias, Teatro Colón, Gran Rex, Niceto Club, La Trastienda',
+        lang, GEMINI_KEY
+      ),
+      searchCategory(
+        destination, dias, hoy,
+        'deportes: fútbol (River, Boca, San Lorenzo, Racing, Independiente), básquet, tenis, maratones, eventos deportivos',
+        'Estadio Monumental River, La Bombonera, Estadio Obras, Parque Roca',
+        lang, GEMINI_KEY
+      ),
+      searchCategory(
+        destination, dias, hoy,
+        'cultura, feriados nacionales, ferias, congresos, exposiciones, festividades y eventos MICE',
+        'La Rural, Centro Cultural Kirchner, Usina del Arte, Parque Norte',
+        lang, GEMINI_KEY
+      )
+    ])
+
+    // Combinar y deduplicar
+    const allEvents = deduplicateEvents([...musicEvents, ...sportEvents, ...cultureEvents])
+
+    // Generar RM insight
+    const insightPrompt = `Sos un experto en revenue management hotelero. Tenés esta lista de eventos en ${destination} para ${dias}: ${allEvents.slice(0,10).map(e => `${e.name} (${e.day} ${e.month})`).join(', ')}. Escribí exactamente 3 oraciones sobre ${focoMap[foco]||'impacto hotelero'}: cuándo hay mayor pick-up, qué fechas subir tarifas, y minimum stay recomendado. Sin comillas dobles. En ${lang}.`
+
+    const insightRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          tools: [{ google_search: {} }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 4096 }
+          contents: [{ parts: [{ text: insightPrompt }] }],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 300 }
         })
       }
     )
-    const geminiData = await geminiRes.json()
-    if (geminiData.error) return res.status(500).json({ error: 'Gemini: ' + geminiData.error.message })
-    const parts = geminiData.candidates?.[0]?.content?.parts || []
-    const text = parts.filter(p => p.text).map(p => p.text).join('')
-    const data = safeParseJSON(text)
-    if (!data || !data.events) return res.status(200).json({ destination, events: [], rm_insight: 'No se pudieron procesar los eventos encontrados.' })
-    if (data.events.length > 0) setCache(cacheKey, data)
-    return res.status(200).json(data)
+    const insightData = await insightRes.json()
+    const rm_insight = insightData.candidates?.[0]?.content?.parts?.[0]?.text || ''
+
+    const result = { destination, events: allEvents, rm_insight }
+    if (allEvents.length > 0) setCache(cacheKey, result)
+
+    return res.status(200).json(result)
+
   } catch (err) {
     return res.status(500).json({ error: err.message })
   }
