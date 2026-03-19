@@ -1,33 +1,8 @@
 const cache = new Map()
-const CACHE_TTL = 12 * 60 * 60 * 1000
+const CACHE_TTL = 6 * 60 * 60 * 1000
 const rateLimit = new Map()
 const MAX_REQUESTS = 25
 const WINDOW_MS = 4 * 60 * 60 * 1000
-
-// Venues conocidos por ciudad — se puede ampliar
-const VENUES_BY_CITY = {
-  'buenos aires': 'Movistar Arena, Estadio River Plate, La Bombonera, Estadio Vélez, Luna Park, Estadio Obras Sanitarias, Teatro Colón, Gran Rex, ND Ateneo, Niceto Club, La Trastienda, Estadio San Lorenzo, Estadio Racing, Estadio Independiente, Parque Roca, La Rural, CCK, Usina del Arte',
-  'rio de janeiro': 'Maracanã, Estádio Nilton Santos, Vivo Rio, Circo Voador, Qualistage, Jeunesse Arena, Copacabana Palace, Pier Mauá',
-  'sao paulo': 'Allianz Parque, Neo Química Arena, Morumbi, Vibra São Paulo, Audio Club, Complexo Apotheke, Carioca Club',
-  'mendoza': 'Estadio Malvinas Argentinas, Teatro Independencia, Arena Maipú, Estadio Aconcagua Arena',
-  'cordoba': 'Estadio Mario Alberto Kempes, Quality Espacio, Orfeo Superdomo, Teatro del Libertador',
-  'montevideo': 'Estadio Centenario, Teatro Solís, Antel Arena, Sala del Museo',
-  'santiago de chile': 'Estadio Nacional, Movistar Arena Santiago, Teatro Caupolicán, Club Chocolate',
-  'lima': 'Estadio Nacional, Arena 1, Explanada Sur, Teatro Municipal',
-  'bogota': 'Estadio El Campín, Movistar Arena Bogotá, Plaza Mayor',
-  'ciudad de mexico': 'Foro Sol, Estadio Azteca, Palacio de los Deportes, Auditorio Nacional, Arena Ciudad de México',
-  'madrid': 'Estadio Santiago Bernabéu, Metropolitano, WiZink Center, Palacio de los Deportes',
-  'barcelona': 'Camp Nou, Palau Sant Jordi, Razzmatazz, Apolo',
-  'buenos aires argentina': 'Movistar Arena, Estadio River Plate, La Bombonera, Estadio Vélez, Luna Park, Estadio Obras Sanitarias, Teatro Colón, Gran Rex, ND Ateneo, Niceto Club, La Trastienda',
-}
-
-function getVenuesForCity(destination) {
-  const key = destination.toLowerCase().trim()
-  for (const [city, venues] of Object.entries(VENUES_BY_CITY)) {
-    if (key.includes(city) || city.includes(key)) return venues
-  }
-  return null
-}
 
 function checkRateLimit(ip) {
   const now = Date.now()
@@ -90,43 +65,6 @@ function safeParseJSON(text) {
   } catch(e) { return null }
 }
 
-async function geminiSearch(prompt, GEMINI_KEY) {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        tools: [{ google_search: {} }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 4096 }
-      })
-    }
-  )
-  const data = await res.json()
-  if (data.error) throw new Error(data.error.message)
-  const parts = data.candidates?.[0]?.content?.parts || []
-  return parts.filter(p => p.text).map(p => p.text).join('')
-}
-
-function parseArray(text) {
-  const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-  const start = clean.indexOf('[')
-  const end = clean.lastIndexOf(']')
-  if (start === -1 || end === -1) return []
-  try { return JSON.parse(clean.substring(start, end + 1)) } catch(e) { return [] }
-}
-
-function deduplicateEvents(events) {
-  const seen = new Set()
-  return events.filter(ev => {
-    const key = `${ev.name?.toLowerCase().trim().substring(0,25)}|${ev.day}|${ev.month}`
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-}
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
   const { destination, dias, foco, idioma } = req.body
@@ -146,53 +84,50 @@ export default async function handler(req, res) {
   const cached = getFromCache(cacheKey)
   if (cached) return res.status(200).json({ ...cached, _cached: true })
 
-  const hoy = new Date().toISOString().split('T')[0]
-  const lang = idioma || 'español'
   const focoMap = { general: 'impacto general en demanda hotelera', leisure: 'segmento leisure y turismo vacacional', mice: 'segmento corporativo, congresos y ferias MICE', grupos: 'grupos, agencias y turismo emisivo' }
-  const venues = getVenuesForCity(destination)
+  const hoy = new Date().toISOString().split('T')[0]
 
-  const jsonArr = `[{"name":"nombre","day":"DD","month":"MMM mayúsculas en ${lang}","year":"YYYY","category":"music|sport|cultural|mice|gastro|festivo|other","venue":"lugar","capacity":"aforo","impact":"impacto hotelero","importance":"high|medium"}]`
+  const prompt = `Usá Google Search para buscar TODOS los eventos en ${destination} para el período ${dias}.
+
+Buscá específicamente:
+- Recitales y conciertos confirmados
+- Festivales de música
+- Partidos de fútbol y eventos deportivos importantes
+- Ferias, exposiciones y congresos
+- Feriados nacionales y puentes
+- Festividades culturales y religiosas
+- Maratones y eventos masivos
+
+Hoy es ${hoy}. Solo incluí eventos FUTUROS (fecha mayor a ${hoy}).
+
+Debés encontrar AL MENOS 10 eventos si los hay. Buscá en múltiples fuentes.
+
+Respondé SOLO con este JSON sin markdown, sin texto extra, sin comillas dobles dentro de valores:
+{"destination":"${destination}","events":[{"name":"nombre","day":"DD","month":"MMM en ${idioma||'español'} mayúsculas","year":"YYYY","category":"music|sport|cultural|mice|gastro|festivo|other","venue":"lugar","capacity":"aforo o vacio","impact":"impacto hotelero breve","importance":"high|medium"}],"rm_insight":"2 oraciones sobre ${focoMap[foco]||'impacto hotelero'}"}
+
+Respondé en ${idioma||'español'}.`
 
   try {
-    // Definir búsquedas según si la ciudad tiene venues conocidos
-    const searches = [
-      // Búsqueda 1: Música y shows
-      geminiSearch(`Buscá en Google la agenda completa de recitales, conciertos y shows en ${destination} para ${dias}. ${venues ? `Revisá específicamente la agenda de: ${venues}.` : ''} Incluí artistas nacionales e internacionales, grandes y pequeños. Solo desde ${hoy}. Respondé SOLO con JSON array sin markdown: ${jsonArr} En ${lang}.`, GEMINI_KEY),
-
-      // Búsqueda 2: Deportes
-      geminiSearch(`Buscá en Google todos los eventos deportivos en ${destination} para ${dias}: fútbol, básquet, tenis, rugby, maratones, torneos. ${venues ? `Venues: ${venues}.` : ''} Solo desde ${hoy}. Respondé SOLO con JSON array sin markdown: ${jsonArr} En ${lang}.`, GEMINI_KEY),
-
-      // Búsqueda 3: Cultura, ferias, feriados + RM insight
-      geminiSearch(`Buscá en Google ferias, exposiciones, congresos, feriados nacionales, festividades y eventos culturales en ${destination} para ${dias}. Solo desde ${hoy}.
-
-Respondé con este JSON sin markdown:
-{"events":${jsonArr},"rm_insight":"3 oraciones sobre ${focoMap[foco]||'impacto hotelero'}: pick-up esperado, fechas para subir tarifas y minimum stay. Sin comillas dobles internas."}
-En ${lang}.`, GEMINI_KEY),
-
-      // Búsqueda 4: Agenda específica de venues (solo si tiene venues conocidos, sino agenda general)
-      venues
-        ? geminiSearch(`Buscá en Google la agenda detallada de eventos para ${dias} en estos venues de ${destination}: ${venues}. Encontrá TODOS los eventos confirmados incluso los menos conocidos. Solo desde ${hoy}. Respondé SOLO con JSON array sin markdown: ${jsonArr} En ${lang}.`, GEMINI_KEY)
-        : geminiSearch(`Buscá en Google "agenda eventos ${destination} ${dias}" y "qué hacer en ${destination}". Encontrá eventos locales, festivales regionales y actividades. Solo desde ${hoy}. Respondé SOLO con JSON array sin markdown: ${jsonArr} En ${lang}.`, GEMINI_KEY)
-    ]
-
-    const [musicText, sportText, cultureText, venueText] = await Promise.all(searches)
-
-    const cultureData = safeParseJSON(cultureText)
-    const cultureEvents = cultureData?.events || parseArray(cultureText)
-    const rm_insight = cultureData?.rm_insight || ''
-
-    const allEvents = deduplicateEvents([
-      ...parseArray(musicText),
-      ...parseArray(sportText),
-      ...cultureEvents,
-      ...parseArray(venueText)
-    ])
-
-    const result = { destination, events: allEvents, rm_insight }
-    if (allEvents.length > 0) setCache(cacheKey, result)
-
-    return res.status(200).json(result)
-
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          tools: [{ google_search: {} }],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 8192 }
+        })
+      }
+    )
+    const geminiData = await geminiRes.json()
+    if (geminiData.error) return res.status(500).json({ error: 'Gemini: ' + geminiData.error.message })
+    const parts = geminiData.candidates?.[0]?.content?.parts || []
+    const text = parts.filter(p => p.text).map(p => p.text).join('')
+    const data = safeParseJSON(text)
+    if (!data || !data.events) return res.status(200).json({ destination, events: [], rm_insight: 'No se pudieron procesar los eventos.' })
+    if (data.events.length > 0) setCache(cacheKey, data)
+    return res.status(200).json(data)
   } catch (err) {
     return res.status(500).json({ error: err.message })
   }
