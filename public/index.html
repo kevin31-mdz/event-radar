@@ -1,457 +1,600 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RevMates — Event Radar</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #0c0c10; --surface: #15151c; --surface2: #1e1e28; --surface3: #26262f;
-    --accent: #e8c547; --text: #f2f0f9; --muted: #7a7890; --muted2: #4a4860;
-    --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.12);
-    --radius: 14px; --radius-sm: 8px;
-  }
-  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 15px; }
-  header { border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: rgba(12,12,16,0.95); backdrop-filter: blur(12px); z-index: 100; }
-  .logo { display: flex; align-items: center; gap: 10px; }
-  .logo img { height: 32px; width: 32px; object-fit: contain; border-radius: 4px; filter: invert(1); }
-  .logo-name { font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--text); }
-  .logo-dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; flex-shrink: 0; }
-  .logo-tag { font-size: 10px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
-  .header-meta { font-size: 11px; color: var(--muted); }
-  .container { max-width: 860px; margin: 0 auto; padding: 32px 20px 80px; }
-  .hero { margin-bottom: 32px; }
-  .hero h1 { font-family: 'DM Serif Display', serif; font-size: clamp(28px, 5vw, 44px); line-height: 1.15; color: var(--text); margin-bottom: 10px; letter-spacing: -0.5px; }
-  .hero h1 em { font-style: italic; color: var(--accent); }
-  .hero p { color: var(--muted); font-size: 14px; font-weight: 300; max-width: 500px; }
-  .search-card { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); padding: 20px; margin-bottom: 24px; }
-  .search-top { display: flex; gap: 10px; margin-bottom: 16px; }
-  .input-wrap { flex: 1; position: relative; }
-  .input-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; font-size: 14px; }
-  .dest-input { width: 100%; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 12px 14px 12px 36px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 15px; outline: none; transition: border-color 0.2s; }
-  .dest-input::placeholder { color: var(--muted2); }
-  .dest-input:focus { border-color: var(--accent); }
-  .search-btn { background: var(--accent); color: #0c0c10; border: none; border-radius: var(--radius-sm); padding: 12px 20px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity 0.2s; white-space: nowrap; }
-  .search-btn:hover { opacity: 0.88; }
-  .search-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .options-row { <div class="options-row">
-  <div class="opt-group">
-    <span class="opt-label">Desde</span>
-    <input type="date" class="opt-select" id="fechaDesde">
-  </div>
-  <div class="opt-group">
-    <span class="opt-label">Hasta</span>
-    <input type="date" class="opt-select" id="fechaHasta">
-  </div>
-  <div class="opt-group" title="Ajusta el análisis de Revenue Insight según el segmento que más te interesa: leisure, corporativo, grupos o impacto general.">
-    <span class="opt-label" style="cursor:help;border-bottom:1px dotted var(--muted)">Foco RM ⓘ</span>
-    <select class="opt-select" id="foco">
-      <option value="general" selected>General — visión completa</option>
-      <option value="leisure">Leisure — turismo vacacional</option>
-      <option value="mice">MICE — congresos y ferias</option>
-      <option value="grupos">Grupos — agencias y emisivo</option>
-    </select>
-  </div>
-  <div class="opt-group" title="Idioma en que se mostrarán los resultados, descripciones y el análisis de Revenue Insight.">
-    <span class="opt-label" style="cursor:help;border-bottom:1px dotted var(--muted)">Idioma ⓘ</span>
-    <select class="opt-select" id="idioma">
-      <option value="español" selected>Español</option>
-      <option value="inglés">Inglés</option>
-      <option value="portugués">Portugués</option>
-    </select>
-  </div>
-</div>}
-  .opt-group { display: flex; align-items: center; gap: 6px; }
-  .opt-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; white-space: nowrap; }
-  .opt-select, input[type="date"].opt-select { background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 6px 10px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 12px; cursor: pointer; outline: none; color-scheme: dark; }
-  .opt-select:focus, input[type="date"].opt-select:focus { border-color: var(--accent); }
-  .section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-  .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); font-weight: 500; white-space: nowrap; }
-  .section-line { flex: 1; height: 1px; background: var(--border); }
-  .regions-grid { display: flex; flex-direction: column; gap: 10px; margin-bottom: 36px; }
-  .region-row { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
-  .region-label { font-size: 10px; color: var(--muted2); text-transform: uppercase; letter-spacing: 1.5px; min-width: 80px; font-weight: 500; padding-top: 6px; }
-  .chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 5px 13px; font-size: 12px; color: var(--muted); cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; white-space: nowrap; }
-  .chip:hover { border-color: var(--accent); color: var(--accent); background: rgba(232,197,71,0.06); }
-  .loading { display: none; text-align: center; padding: 50px 20px; }
-  .loading.active { display: block; }
-  .spinner { width: 32px; height: 32px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 14px; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .loading-text { font-size: 13px; color: var(--muted); }
-  .loading-dest { color: var(--accent); font-weight: 500; }
-  #results { display: none; }
-  #results.active { display: block; }
-  .results-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 8px; }
-  .results-dest { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--text); }
-  .results-meta { font-size: 12px; color: var(--muted); }
-  .back-btn { background: none; border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 6px 14px; color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 12px; cursor: pointer; transition: all 0.15s; }
-  .back-btn:hover { color: var(--text); border-color: var(--border); }
-  .filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
-  .filter-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px; font-size: 11px; color: var(--muted); cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
-  .filter-btn:hover, .filter-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(232,197,71,0.06); }
-  .events-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
-  .event-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; display: grid; grid-template-columns: 50px 1fr auto; gap: 12px; align-items: start; opacity: 0; transform: translateY(8px); animation: fadeUp 0.3s ease forwards; }
-  .event-card.high-impact { border-left: 3px solid var(--accent); }
-  @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
-  .date-box { background: var(--surface2); border-radius: var(--radius-sm); text-align: center; padding: 7px 4px; border: 1px solid var(--border); }
-  .date-day { font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--accent); line-height: 1; }
-  .date-mon { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
-  .event-name { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 3px; line-height: 1.35; }
-  .event-venue { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-  .event-impact { font-size: 12px; color: var(--muted); line-height: 1.5; border-top: 1px solid var(--border); padding-top: 5px; margin-top: 4px; }
-  .event-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
-  .cat-tag { border-radius: 20px; padding: 3px 9px; font-size: 10px; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap; }
-  .cat-music    { background: rgba(126,184,247,0.12); color: #7eb8f7; border: 1px solid rgba(126,184,247,0.2); }
-  .cat-sport    { background: rgba(98,210,140,0.12);  color: #62d28c; border: 1px solid rgba(98,210,140,0.2); }
-  .cat-cultural { background: rgba(232,197,71,0.1);   color: #e8c547; border: 1px solid rgba(232,197,71,0.2); }
-  .cat-mice     { background: rgba(183,140,247,0.12); color: #b78cf7; border: 1px solid rgba(183,140,247,0.2); }
-  .cat-gastro   { background: rgba(247,140,140,0.12); color: #f78c8c; border: 1px solid rgba(247,140,140,0.2); }
-  .cat-festivo  { background: rgba(247,180,100,0.12); color: #f7b464; border: 1px solid rgba(247,180,100,0.2); }
-  .cat-other    { background: rgba(120,120,140,0.12); color: var(--muted); border: 1px solid var(--border); }
-  .impact-badge { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
-  .impact-alto  { background: rgba(232,197,71,0.12); color: var(--accent); border: 1px solid rgba(232,197,71,0.25); }
-  .impact-medio { background: rgba(120,120,140,0.12); color: var(--muted); border: 1px solid var(--border); }
-  .rm-insight { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); padding: 20px 22px; margin-top: 8px; }
-  .insight-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-  .insight-dot { width: 7px; height: 7px; background: var(--accent); border-radius: 50%; }
-  .insight-title { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--accent); font-weight: 500; }
-  .insight-content { font-size: 13px; color: #c8c6d8; line-height: 1.75; white-space: pre-wrap; }
-  .error-box { display: none; background: rgba(247,194,71,0.06); border: 1px solid rgba(247,194,71,0.2); border-radius: var(--radius); padding: 20px 22px; color: #f7c247; font-size: 13px; text-align: center; margin-top: 16px; }
-  .error-box.active { display: block; }
-  .retry-btn { margin-top: 14px; background: var(--accent); color: #0c0c10; border: none; border-radius: var(--radius-sm); padding: 10px 18px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; }
-  .retry-btn:hover { opacity: 0.88; }
-  footer { border-top: 1px solid var(--border); padding: 18px 24px; text-align: center; font-size: 11px; color: var(--muted2); }
-  @media (max-width: 600px) {
-    header { padding: 12px 16px; }
-    .logo-tag { display: none; }
-    .container { padding: 20px 14px 60px; }
-    .search-top { flex-direction: column; }
-    .search-btn { width: 100%; text-align: center; padding: 13px; }
-    .options-row { gap: 10px; }
-    input[type="date"].opt-select { width: 130px; }
-    .event-card { grid-template-columns: 46px 1fr; }
-    .event-right { display: none; }
-    .region-label { min-width: 100%; padding-top: 0; margin-bottom: 2px; }
-  }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CachoGen — Google & Meta Ads</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f7f8f5; --surface: #ffffff; --surface2: #f0f2ed;
+      --border: #e2e5de; --border-hover: #c8cfc0;
+      --text: #1a1e16; --muted: #5a6355; --hint: #9aa890;
+      --accent: #3a7d44; --accent-light: #e8f3ea; --accent-hover: #2e6636; --accent-text: #ffffff;
+      --danger: #c0392b; --radius: 8px; --radius-lg: 12px;
+      --mono: 'DM Mono', monospace; --sans: 'Inter', sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; line-height: 1.6; }
+    .shell { display: grid; grid-template-columns: 360px 1fr; min-height: 100vh; }
+    .sidebar { background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; position: sticky; top: 0; overflow-y: auto; }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    .logo { padding: 20px 24px 16px; border-bottom: 1px solid var(--border); }
+    .logo-sub { font-size: 11px; color: var(--hint); font-family: var(--mono); margin-top: 6px; }
+    .form-body { padding: 16px 24px; flex: 1; }
+    .section-sep { border: none; border-top: 1px solid var(--border); margin: 14px 0 12px; }
+    .section-label { font-size: 10px; font-weight: 600; color: var(--hint); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
+    .field { margin-bottom: 10px; }
+    .field label { display: block; font-size: 11px; font-weight: 500; color: var(--muted); margin-bottom: 4px; }
+    .pill-label { display: inline-block; font-size: 9px; padding: 1px 6px; border-radius: 20px; background: var(--accent-light); color: var(--accent); margin-left: 5px; vertical-align: middle; font-weight: 500; }
+    input[type="text"], input[type="url"], select, textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: var(--sans); font-size: 12px; border-radius: var(--radius); padding: 8px 11px; outline: none; transition: border-color 0.15s, background 0.15s; -webkit-appearance: none; }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); background: var(--surface); }
+    input::placeholder, textarea::placeholder { color: var(--hint); }
+    select { cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%239aa890' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
+    select option { background: var(--surface); }
+    textarea { resize: vertical; min-height: 60px; line-height: 1.5; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .mt { margin-top: 8px; }
+    .tono-custom { margin-top: 6px; display: none; }
+    .tono-custom.visible { display: block; }
+    .tono-hint { font-size: 10px; color: var(--hint); margin-top: 3px; line-height: 1.5; }
+    .adv-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px 0; user-select: none; }
+    .adv-toggle-icon { width: 18px; height: 18px; border: 1px solid var(--border); border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0; background: var(--surface2); }
+    .adv-toggle:hover .adv-toggle-icon { border-color: var(--accent); background: var(--accent-light); }
+    .adv-toggle svg { width: 10px; height: 10px; transition: transform 0.2s; color: var(--muted); }
+    .adv-toggle.open svg { transform: rotate(180deg); }
+    .adv-toggle span { font-size: 11px; color: var(--muted); font-weight: 500; }
+    .adv-panel { display: none; padding: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 10px; }
+    .adv-panel.open { display: block; }
+    .btn-generate { width: 100%; padding: 12px; background: var(--accent); color: var(--accent-text); font-family: var(--sans); font-size: 13px; font-weight: 600; border: none; border-radius: var(--radius); cursor: pointer; transition: background 0.15s, transform 0.1s; margin-top: 6px; }
+    .btn-generate:hover { background: var(--accent-hover); }
+    .btn-generate:active { transform: scale(0.99); }
+    .btn-generate:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .btn-pdf { width: 100%; padding: 9px; background: transparent; color: var(--accent); font-family: var(--sans); font-size: 12px; font-weight: 500; border: 1px solid var(--accent); border-radius: var(--radius); cursor: pointer; transition: all 0.15s; margin-top: 6px; display: none; }
+    .btn-pdf:hover { background: var(--accent-light); }
+    .btn-pdf.visible { display: block; }
+    .sidebar-footer { padding: 12px 24px 8px; border-top: 1px solid var(--border); }
+    .footer-brand { text-align: center; font-size: 10px; color: var(--hint); padding: 8px 0 4px; font-family: var(--mono); }
+    .main { display: flex; flex-direction: column; min-height: 100vh; background: var(--bg); }
+    .main-header { padding: 18px 32px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--surface); z-index: 10; }
+    .main-header-title { font-size: 13px; color: var(--muted); font-family: var(--mono); }
+    .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+    .tab { padding: 5px 12px; font-size: 11px; font-weight: 500; cursor: pointer; border-radius: 6px; border: 1px solid transparent; background: transparent; color: var(--hint); transition: all 0.15s; }
+    .tab:hover { color: var(--muted); border-color: var(--border); background: var(--surface2); }
+    .tab.active { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
+    .result-area { flex: 1; padding: 24px 32px; overflow-y: auto; }
+    .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 60vh; gap: 14px; color: var(--hint); }
+    .empty-icon { width: 52px; height: 52px; border: 1.5px dashed var(--border); border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; }
+    .empty-state p { font-size: 13px; color: var(--hint); }
+    .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 60vh; gap: 16px; }
+    .loader { width: 28px; height: 28px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-state p { font-size: 12px; color: var(--muted); }
+    .copies-grid { display: grid; gap: 10px; }
+    .copy-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; transition: border-color 0.15s, box-shadow 0.15s; animation: fadeIn 0.25s ease both; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .copy-card:hover { border-color: var(--border-hover); box-shadow: 0 1px 6px rgba(0,0,0,0.06); }
+    .copy-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .copy-tipo { font-size: 10px; font-weight: 600; color: var(--hint); letter-spacing: 0.07em; text-transform: uppercase; }
+    .copy-num { font-size: 10px; color: var(--hint); font-family: var(--mono); }
+    .copy-variants { display: grid; gap: 7px; }
+    .copy-variant { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 9px 11px; }
+    .copy-variant-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+    .copy-code { font-family: var(--mono); font-size: 10px; font-weight: 500; color: var(--accent); background: var(--accent-light); padding: 1px 7px; border-radius: 4px; }
+    .copy-text { font-size: 13px; color: var(--text); line-height: 1.5; margin-bottom: 7px; }
+    .copy-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .char-count { font-family: var(--mono); font-size: 10px; color: var(--hint); }
+    .char-count.over { color: var(--danger); }
+    .char-bar { flex: 1; height: 2px; background: var(--border); border-radius: 2px; overflow: hidden; max-width: 80px; }
+    .char-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; background: var(--accent); }
+    .char-bar-fill.over { background: var(--danger); }
+    .btn-copy { font-size: 10px; font-weight: 500; padding: 3px 10px; background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+    .btn-copy:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+    .btn-copy.copied { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+    .copy-reason { font-size: 10px; color: var(--hint); margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); font-style: italic; }
+    .ext-list { display: grid; gap: 5px; }
+    .ext-item { display: flex; justify-content: space-between; align-items: center; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 7px 11px; gap: 10px; }
+    .ext-code { font-family: var(--mono); font-size: 10px; font-weight: 500; color: var(--accent); background: var(--accent-light); padding: 1px 7px; border-radius: 4px; min-width: 70px; }
+    .ext-text { font-size: 12px; color: var(--text); flex: 1; }
+    .section-group { margin-bottom: 24px; }
+    .section-group-title { font-size: 10px; font-weight: 600; color: var(--hint); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    @media (max-width: 900px) { .shell { grid-template-columns: 1fr; } .sidebar { height: auto; position: static; } .main-header { position: static; } }
+  </style>
 </head>
 <body>
-
-<header>
-  <div class="logo">
-    <img src="/revmates.jpg" alt="RevMates">
-    <span class="logo-name">RevMates</span>
-    <div class="logo-dot"></div>
-    <span class="logo-tag">Event Radar</span>
-  </div>
-  <span class="header-meta" id="todayDate"></span>
-</header>
-
-<div class="container">
-  <div class="hero">
-    <h1>Próximos eventos,<br><em>cualquier destino.</em></h1>
-    <p>Buscá eventos en tiempo real en cualquier ciudad del mundo y recibí un análisis de impacto para tu estrategia de revenue management.</p>
-  </div>
-
-  <div class="search-card">
-    <div class="search-top">
-      <div class="input-wrap">
-        <span class="input-icon">⌖</span>
-        <input class="dest-input" id="destInput" type="text"
-          placeholder="Ciudad o país — ej: Tokyo, Dubai, Mendoza..."
-          onkeydown="if(event.key==='Enter') triggerSearch()" autocomplete="off">
-      </div>
-      <button class="search-btn" id="searchBtn" onclick="triggerSearch()">Buscar eventos ↗</button>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="logo">
+      <svg width="200" height="50" viewBox="0 0 480 120" xmlns="http://www.w3.org/2000/svg">
+        <path d="M88,22 A48,48 0 1,0 88,98" fill="none" stroke="#3B6D11" stroke-width="5" stroke-linecap="round"/>
+        <circle cx="40" cy="60" r="8" fill="#3B6D11"/>
+        <line x1="40" y1="52" x2="40" y2="28" stroke="#639922" stroke-width="2" stroke-linecap="round" stroke-dasharray="3 3" opacity="0.85"/>
+        <line x1="40" y1="68" x2="40" y2="92" stroke="#BA7517" stroke-width="2" stroke-linecap="round" stroke-dasharray="3 3" opacity="0.8"/>
+        <line x1="108" y1="14" x2="108" y2="106" stroke="#CCCCCC" stroke-width="1"/>
+        <text font-family="sans-serif" font-size="42" font-weight="500" letter-spacing="5" fill="#1a1a1a" x="122" y="56" dominant-baseline="central">COIRA</text>
+        <text font-family="sans-serif" font-size="10" font-weight="400" letter-spacing="3" fill="#666666" x="124" y="90" dominant-baseline="central">TECNOLOGÍA · MARKETING · PROYECTOS</text>
+      </svg>
+      <div class="logo-sub">CachoGen — Google &amp; Meta Ads v2.0</div>
     </div>
-    <div class="options-row">
-      <div class="opt-group">
-        <span class="opt-label">Desde</span>
-        <input type="date" class="opt-select" id="fechaDesde">
-      </div>
-      <div class="opt-group">
-        <span class="opt-label">Hasta</span>
-        <input type="date" class="opt-select" id="fechaHasta">
-      </div>
-      <div class="opt-group">
-        <span class="opt-label">Foco RM</span>
-        <select class="opt-select" id="foco">
-          <option value="general" selected>General</option>
-          <option value="leisure">Leisure</option>
-          <option value="mice">Corporate / MICE</option>
-          <option value="grupos">Grupos</option>
-        </select>
-      </div>
-      <div class="opt-group">
-        <span class="opt-label">Idioma</span>
-        <select class="opt-select" id="idioma">
-          <option value="español" selected>Español</option>
-          <option value="inglés">Inglés</option>
-          <option value="portugués">Portugués</option>
-        </select>
-      </div>
-    </div>
-  </div>
 
-  <div id="quickSection">
-    <div class="section-header">
-      <span class="section-title">Accesos rápidos</span>
-      <div class="section-line"></div>
-    </div>
-    <div class="regions-grid">
-      <div class="region-row">
-        <span class="region-label">LATAM</span>
-        <span class="chip" onclick="go('Buenos Aires')">Buenos Aires</span>
-        <span class="chip" onclick="go('Río de Janeiro')">Río de Janeiro</span>
-        <span class="chip" onclick="go('Ciudad de México')">Ciudad de México</span>
-        <span class="chip" onclick="go('Bogotá')">Bogotá</span>
-        <span class="chip" onclick="go('Santiago de Chile')">Santiago</span>
-        <span class="chip" onclick="go('Lima')">Lima</span>
+    <div class="form-body">
+      <div class="section-label">Contexto</div>
+      <div class="grid-2">
+        <div class="field">
+          <label>Vertical</label>
+          <select id="vertical">
+            <option value="ecommerce">E-commerce</option>
+            <option value="servicios">Servicios</option>
+            <option value="turismo">Turismo</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Idioma</label>
+          <select id="idioma">
+            <option value="es">Español</option>
+            <option value="en">English</option>
+          </select>
+        </div>
       </div>
-      <div class="region-row">
-        <span class="region-label">UY / BO / PE</span>
-        <span class="chip" onclick="go('Montevideo')">Montevideo</span>
-        <span class="chip" onclick="go('Punta del Este')">Punta del Este</span>
-        <span class="chip" onclick="go('La Paz')">La Paz</span>
-        <span class="chip" onclick="go('Santa Cruz de la Sierra')">Santa Cruz</span>
-        <span class="chip" onclick="go('Cusco')">Cusco</span>
-        <span class="chip" onclick="go('Machu Picchu')">Machu Picchu</span>
+      <div class="grid-2 mt">
+        <div class="field">
+          <label>Objetivo</label>
+          <select id="objetivo">
+            <option value="ventas">Ventas</option>
+            <option value="leads">Leads</option>
+            <option value="trafico">Tráfico</option>
+            <option value="remarketing">Remarketing</option>
+            <option value="branding">Awareness</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Audiencia</label>
+          <select id="audiencia_tipo">
+            <option value="fria">Fría</option>
+            <option value="remarketing">Remarketing</option>
+            <option value="lookalike">Lookalike</option>
+            <option value="base">Clientes</option>
+          </select>
+        </div>
       </div>
-      <div class="region-row">
-        <span class="region-label">Europa</span>
-        <span class="chip" onclick="go('Barcelona')">Barcelona</span>
-        <span class="chip" onclick="go('Londres')">Londres</span>
-        <span class="chip" onclick="go('París')">París</span>
-        <span class="chip" onclick="go('Ámsterdam')">Ámsterdam</span>
-        <span class="chip" onclick="go('Berlín')">Berlín</span>
-        <span class="chip" onclick="go('Roma')">Roma</span>
+      <div class="grid-2 mt">
+        <div class="field">
+          <label>Producto / servicio</label>
+          <input type="text" id="producto" placeholder="Ej: zapatillas running" />
+        </div>
+        <div class="field">
+          <label>Descripción audiencia</label>
+          <input type="text" id="audiencia_desc" placeholder="Ej: hombres 30-50" />
+        </div>
       </div>
-      <div class="region-row">
-        <span class="region-label">Norteamérica</span>
-        <span class="chip" onclick="go('Nueva York')">Nueva York</span>
-        <span class="chip" onclick="go('Las Vegas')">Las Vegas</span>
-        <span class="chip" onclick="go('Miami')">Miami</span>
-        <span class="chip" onclick="go('Los Ángeles')">Los Ángeles</span>
-        <span class="chip" onclick="go('Chicago')">Chicago</span>
-      </div>
-      <div class="region-row">
-        <span class="region-label">Asia / ME</span>
-        <span class="chip" onclick="go('Dubai')">Dubai</span>
-        <span class="chip" onclick="go('Tokyo')">Tokyo</span>
-        <span class="chip" onclick="go('Singapur')">Singapur</span>
-        <span class="chip" onclick="go('Bangkok')">Bangkok</span>
-        <span class="chip" onclick="go('Seúl')">Seúl</span>
-      </div>
-      <div class="region-row">
-        <span class="region-label">Argentina</span>
-        <span class="chip" onclick="go('Mendoza')">Mendoza</span>
-        <span class="chip" onclick="go('Bariloche')">Bariloche</span>
-        <span class="chip" onclick="go('Región de los 7 Lagos, Neuquén')">7 Lagos</span>
-        <span class="chip" onclick="go('Córdoba')">Córdoba</span>
-        <span class="chip" onclick="go('Salta')">Salta</span>
-        <span class="chip" onclick="go('Mar del Plata')">Mar del Plata</span>
-        <span class="chip" onclick="go('Ushuaia')">Ushuaia</span>
-        <span class="chip" onclick="go('Rosario')">Rosario</span>
-        <span class="chip" onclick="go('Puerto Madryn')">Puerto Madryn</span>
-      </div>
-    </div>
-  </div>
 
-  <div class="loading" id="loading">
-    <div class="spinner"></div>
-    <p class="loading-text">Buscando eventos en <span class="loading-dest" id="loadingDest"></span>...</p>
-  </div>
+      <hr class="section-sep" />
+      <div class="section-label">Propuesta de valor</div>
+      <div class="field">
+        <label>Diferencial principal <span class="pill-label">titular</span></label>
+        <input type="text" id="dif1" placeholder="Argumento más fuerte — va en titulares" />
+      </div>
+      <div class="grid-2 mt">
+        <div class="field">
+          <label>Secundario 1 <span class="pill-label">descripción</span></label>
+          <input type="text" id="dif2" placeholder="Ej: envío gratis en 24h" />
+        </div>
+        <div class="field">
+          <label>Secundario 2 <span class="pill-label">descripción</span></label>
+          <input type="text" id="dif3" placeholder="Ej: garantía 30 días" />
+        </div>
+      </div>
+      <div class="grid-2 mt">
+        <div class="field">
+          <label>Precio / oferta</label>
+          <input type="text" id="precio" placeholder="Ej: 30% OFF, desde $49.999" />
+        </div>
+        <div class="field">
+          <label>CTA principal</label>
+          <input type="text" id="cta" placeholder="Ej: Comprá ahora" />
+        </div>
+      </div>
+      <div class="grid-2 mt">
+        <div class="field">
+          <label>Tono</label>
+          <select id="tono" onchange="onTonoChange()">
+            <option value="cercano">Cercano / amigable</option>
+            <option value="urgente">Urgente / directo</option>
+            <option value="profesional">Profesional</option>
+            <option value="inspiracional">Inspiracional</option>
+            <option value="exclusivo">Exclusivo / premium</option>
+            <option value="otro">Otro — escribir...</option>
+          </select>
+          <div class="tono-custom" id="tono-custom-wrap">
+            <input type="text" id="tono_custom" placeholder="Ej: descontracturado y juvenil..." />
+            <div class="tono-hint">El modelo sigue esta descripción al pie de la letra.</div>
+          </div>
+        </div>
+        <div class="field">
+          <label>URL del sitio (opcional)</label>
+          <input type="url" id="url" placeholder="https://..." />
+        </div>
+      </div>
 
-  <div class="error-box" id="errorBox">
-    <div id="errorMsg">No se pudieron obtener resultados.</div>
-    <small id="errorDetail" style="opacity:0.6;margin-top:6px;display:block"></small>
-  </div>
-
-  <div id="results">
-    <div class="results-bar">
-      <span class="results-dest" id="resultsTitle"></span>
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-        <span class="results-meta" id="resultsMeta"></span>
-        <button class="back-btn" onclick="goBack()">← Nueva búsqueda</button>
+      <hr class="section-sep" />
+      <div class="adv-toggle" id="adv-toggle" onclick="toggleAdvanced()">
+        <div class="adv-toggle-icon">
+          <svg viewBox="0 0 10 10" fill="none"><path d="M2 3.5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <span>Referencias y restricciones</span>
+      </div>
+      <div class="adv-panel" id="adv-panel">
+        <div class="field">
+          <label>Copies de referencia (ads que funcionaron)</label>
+          <textarea id="referencias" rows="3" placeholder="Pegá 1-2 ads de buen rendimiento."></textarea>
+        </div>
+        <div class="field" style="margin-top:8px">
+          <label>Palabras / temas a evitar <span class="pill-label">kw negativas</span></label>
+          <textarea id="restricciones" rows="2" placeholder="Ej: no mencionar precio, evitar 'garantizado'..."></textarea>
+        </div>
       </div>
     </div>
-    <div class="filter-bar" id="filterBar"></div>
-    <div class="events-list" id="eventsList"></div>
-    <div class="rm-insight" id="rmInsight" style="display:none">
-      <div class="insight-header">
-        <div class="insight-dot"></div>
-        <span class="insight-title">Revenue Insight</span>
-      </div>
-      <div class="insight-content" id="insightText"></div>
+
+    <div class="sidebar-footer">
+      <button class="btn-generate" id="btn-gen" onclick="generarCopies()">Generar copies →</button>
+      <button class="btn-pdf" id="btn-pdf" onclick="exportarPDF()">Exportar PDF para cliente</button>
+      <div class="footer-brand">Producto de Agencia Coira</div>
     </div>
-  </div>
+  </aside>
+
+  <main class="main">
+    <header class="main-header">
+      <span class="main-header-title" id="header-title">Completá el brief y generá →</span>
+      <div class="tabs" id="tabs" style="display:none">
+        <button class="tab active" onclick="switchTab('google_rsa')" data-tab="google_rsa">RSA</button>
+        <button class="tab" onclick="switchTab('google_pmax')" data-tab="google_pmax">PMAX</button>
+        <button class="tab" onclick="switchTab('google_ext')" data-tab="google_ext">Extensiones</button>
+        <button class="tab" onclick="switchTab('meta_feed')" data-tab="meta_feed">Meta Feed</button>
+        <button class="tab" onclick="switchTab('meta_stories')" data-tab="meta_stories">Stories</button>
+      </div>
+    </header>
+    <div class="result-area" id="result-area">
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 10h10M4 14h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </div>
+        <p>Los copies aparecen acá</p>
+      </div>
+    </div>
+  </main>
 </div>
 
-<footer>RevMates · Event Radar · Revenue Intelligence · revmates.com</footer>
-
 <script>
-  function initDates() {
-    const hoy = new Date()
-    const hasta = new Date()
-    hasta.setDate(hoy.getDate() + 60)
-    const fmt = d => d.toISOString().split('T')[0]
-    const desdeEl = document.getElementById('fechaDesde')
-    const hastaEl = document.getElementById('fechaHasta')
-    if (!desdeEl.value) desdeEl.value = fmt(hoy)
-    if (!hastaEl.value) hastaEl.value = fmt(hasta)
-  }
-  initDates()
+  let resultData = null;
+  let activeTab = 'google_rsa';
+  let advOpen = false;
+  let currentProducto = '';
 
-  document.getElementById('todayDate').textContent =
-    new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-
-  let allEvents = []
-  let activeFilter = 'todos'
-  let lastDest = ''
-
-  function go(dest) {
-    document.getElementById('destInput').value = dest
-    setTimeout(() => triggerSearch(), 100)
+  function onTonoChange() {
+    const v = document.getElementById('tono').value;
+    document.getElementById('tono-custom-wrap').classList.toggle('visible', v === 'otro');
+    if (v === 'otro') setTimeout(() => document.getElementById('tono_custom').focus(), 50);
   }
 
-  function goBack() {
-    document.getElementById('results').style.display = 'none'
-    document.getElementById('quickSection').style.display = 'block'
-    document.getElementById('errorBox').classList.remove('active')
-    document.getElementById('destInput').value = ''
-    document.getElementById('fechaDesde').value = ''
-    document.getElementById('fechaHasta').value = ''
-    initDates()
+  function toggleAdvanced() {
+    advOpen = !advOpen;
+    document.getElementById('adv-toggle').classList.toggle('open', advOpen);
+    document.getElementById('adv-panel').classList.toggle('open', advOpen);
   }
 
-  function retryShort() {
-    const hoy = new Date()
-    const hasta = new Date()
-    hasta.setDate(hoy.getDate() + 30)
-    const fmt = d => d.toISOString().split('T')[0]
-    document.getElementById('fechaDesde').value = fmt(hoy)
-    document.getElementById('fechaHasta').value = fmt(hasta)
-    document.getElementById('errorBox').classList.remove('active')
-    document.getElementById('destInput').value = lastDest
-    triggerSearch()
+  function getTonoDesc() {
+    const v = document.getElementById('tono').value;
+    if (v === 'otro') return document.getElementById('tono_custom').value.trim() || 'tono natural y claro';
+    return { cercano: 'cercano y amigable, tuteo, lenguaje coloquial', urgente: 'urgente y directo, frases cortas y contundentes', profesional: 'profesional y serio, genera confianza', inspiracional: 'inspiracional y aspiracional, evoca emocion', exclusivo: 'exclusivo y premium, sofisticado' }[v];
   }
 
-  async function triggerSearch() {
-    const dest = document.getElementById('destInput').value.trim()
-    if (!dest) return
-    lastDest = dest
+  const fewShots = {
+    ecommerce: 'Titulares ejemplo e-commerce (MAX 30 chars cada uno):\n- "Envio gratis hoy"\n- "30% OFF este finde"\n- "3 cuotas sin interes"',
+    servicios: 'Titulares ejemplo servicios (MAX 30 chars cada uno):\n- "Consulta gratis"\n- "Resultados desde mes 1"\n- "10 anos de experiencia"',
+    turismo: 'Titulares ejemplo turismo (MAX 30 chars cada uno):\n- "Bariloche desde $89.000"\n- "Ultimos lugares"\n- "Sin vueltas"'
+  };
 
-    initDates()
-    const fechaDesde = document.getElementById('fechaDesde').value
-    const fechaHasta = document.getElementById('fechaHasta').value
-    const dias = `desde el ${fechaDesde} hasta el ${fechaHasta}`
-    const foco = document.getElementById('foco').value
-    const idioma = document.getElementById('idioma').value
+  const audienciaInstruccion = {
+    fria: 'NO conoce el producto. Empieza con el problema o necesidad.',
+    remarketing: 'YA visito el sitio. Genera urgencia y resuelve la objecion principal.',
+    lookalike: 'Similar a clientes actuales. Enfocate en resultados y diferenciales.',
+    base: 'Ya cliente. Enfocate en upsell o reactivacion.'
+  };
 
-    const btn = document.getElementById('searchBtn')
-    btn.disabled = true
-    btn.textContent = 'Buscando...'
-    document.getElementById('quickSection').style.display = 'none'
-    document.getElementById('results').style.display = 'none'
-    document.getElementById('errorBox').classList.remove('active')
-    document.getElementById('loading').classList.add('active')
-    document.getElementById('loadingDest').textContent = dest
+  const verticalContext = {
+    ecommerce: 'E-commerce: prioriza precio, envio, oferta y urgencia.',
+    servicios: 'Servicios: prioriza credibilidad y resultado concreto.',
+    turismo: 'Turismo: prioriza experiencia, emocion y disponibilidad.'
+  };
+
+  async function generarCopies() {
+    const producto = document.getElementById('producto').value.trim();
+    const dif1 = document.getElementById('dif1').value.trim();
+    if (!producto || !dif1) { alert('Completa al menos Producto y Diferencial principal.'); return; }
+
+    currentProducto = producto;
+    const vertical = document.getElementById('vertical').value;
+    const idioma = document.getElementById('idioma').value;
+    const objetivo = document.getElementById('objetivo').value;
+    const audienciaTipo = document.getElementById('audiencia_tipo').value;
+    const audienciaDesc = document.getElementById('audiencia_desc').value.trim();
+    const dif2 = document.getElementById('dif2').value.trim();
+    const dif3 = document.getElementById('dif3').value.trim();
+    const precio = document.getElementById('precio').value.trim();
+    const cta = document.getElementById('cta').value.trim() || 'Consulta ahora';
+    const tonoDesc = getTonoDesc();
+    const url = document.getElementById('url').value.trim();
+    const referencias = document.getElementById('referencias').value.trim();
+    const restricciones = document.getElementById('restricciones').value.trim();
+
+    const btn = document.getElementById('btn-gen');
+    btn.disabled = true;
+    btn.textContent = 'Generando...';
+    document.getElementById('tabs').style.display = 'none';
+    document.getElementById('btn-pdf').classList.remove('visible');
+    document.getElementById('header-title').textContent = 'Generando copies...';
+    document.getElementById('result-area').innerHTML = '<div class="loading-state"><div class="loader"></div><p>Creando copies para ' + producto + '...</p></div>';
+
+    const idiomaInstruccion = idioma === 'en'
+      ? 'Generate ALL copies in English. Use natural native English.'
+      : 'Genera todos los copies en español rioplatense (Argentina). Usa vos, lenguaje natural argentino.';
+
+    const systemPrompt = 'Sos un especialista en performance marketing y copywriting.\n' +
+      verticalContext[vertical] + '\n' +
+      idiomaInstruccion + '\n' +
+      'CRITICO: Cada texto DEBE respetar el limite de caracteres indicado. Cuenta los caracteres antes de responder. Si no entra, acorta.\n' +
+      'Nunca inventes datos que no esten en el brief.\n' +
+      'Responde SOLO con JSON valido, sin texto adicional ni backticks.';
+
+    const userPrompt = 'Genera copies para esta campana:\n\n' +
+      'BRIEF:\n- Producto: ' + producto + '\n- Objetivo: ' + objetivo +
+      '\n- Audiencia: ' + audienciaTipo + (audienciaDesc ? ' - ' + audienciaDesc : '') +
+      '\n- Tono: ' + tonoDesc +
+      (precio ? '\n- Precio/oferta: ' + precio : '') +
+      (url ? '\n- URL: ' + url : '') +
+      '\n\nPROPUESTA DE VALOR:\n- Principal (titulares): ' + dif1 +
+      '\n- Secundario 1: ' + (dif2 || 'no especificado') +
+      '\n- Secundario 2: ' + (dif3 || 'no especificado') +
+      '\n\nCTA: ' + cta +
+      '\nAUDIENCIA: ' + audienciaInstruccion[audienciaTipo] +
+      (referencias ? '\nREFERENCIAS:\n' + referencias : '') +
+      (restricciones ? '\nEVITAR:\n' + restricciones : '') +
+      '\n\nLIMITES ESTRICTOS DE CARACTERES (cuenta los chars, no los superes):\n' +
+      'Google RSA: Titular MAX 30 | Descripcion MAX 90 | Ruta visible MAX 15\n' +
+      'Google PMAX: Titulo largo MAX 90 | Descripcion larga MAX 90\n' +
+      'Extensiones: Sitelink MAX 25 | Texto destacado MAX 25\n' +
+      'Meta Feed: Texto principal MAX 125 | Titular MAX 40 | Descripcion MAX 30\n' +
+      'Meta Stories: Texto overlay MAX 90 | CTA MAX 20\n\n' +
+      fewShots[vertical] + '\n\n' +
+      'Responde SOLO con este JSON (sin comentarios, sin texto extra):\n' +
+      '{"google":{"rsa":{"rutas":["ruta1","ruta2"],"titulares":[{"t":"texto","l":30},{"t":"texto","l":30},{"t":"texto","l":30},{"t":"texto","l":30},{"t":"texto","l":30},{"t":"texto","l":30},{"t":"texto","l":30},{"t":"texto","l":30},{"t":"texto","l":30},{"t":"texto","l":30}],"descripciones":[{"t":"texto","l":90},{"t":"texto","l":90},{"t":"texto","l":90},{"t":"texto","l":90}]},"pmax":{"titulos_largos":[{"t":"texto","l":90},{"t":"texto","l":90},{"t":"texto","l":90},{"t":"texto","l":90},{"t":"texto","l":90}],"descripciones_largas":[{"t":"texto","l":90},{"t":"texto","l":90},{"t":"texto","l":90},{"t":"texto","l":90},{"t":"texto","l":90}]},"extensiones":{"sitelinks":[{"t":"texto","l":25},{"t":"texto","l":25},{"t":"texto","l":25}],"destacados":[{"t":"texto","l":25},{"t":"texto","l":25},{"t":"texto","l":25},{"t":"texto","l":25},{"t":"texto","l":25},{"t":"texto","l":25}]}},"meta":{"feed":{"texto_principal":{"t":"texto","l":125},"titular":{"t":"texto","l":40},"descripcion":{"t":"texto","l":30}},"stories":{"overlay":{"t":"texto","l":90},"cta":{"t":"texto","l":20}}}}';
 
     try {
-      const res = await fetch('/api/search', {
+      const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ destination: dest, dias, foco, idioma })
-      })
+        body: JSON.stringify({ systemPrompt, userPrompt })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      resultData = data;
+      activeTab = 'google_rsa';
+      document.getElementById('tabs').style.display = 'flex';
+      document.getElementById('btn-pdf').classList.add('visible');
+      document.getElementById('header-title').textContent = producto;
+      renderResults();
+    } catch (e) {
+      document.getElementById('result-area').innerHTML = '<div class="empty-state"><p style="color:var(--danger)">Error: ' + e.message + '</p></div>';
+      document.getElementById('header-title').textContent = 'Completa el brief y genera';
+    }
+    btn.disabled = false;
+    btn.textContent = 'Generar copies →';
+  }
 
-      const data = await res.json()
+  function getCode(prefix, index, letra) {
+    return prefix + '-' + String(index).padStart(2,'0') + '-' + letra;
+  }
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Error del servidor')
+  function renderResults() {
+    if (!resultData) return;
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === activeTab));
+    const area = document.getElementById('result-area');
+    let html = '';
+
+    function variantCard(code, txt, limite) {
+      const chars = txt.length;
+      const pct = Math.min(100, Math.round((chars / limite) * 100));
+      const over = chars > limite;
+      const safe = txt.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      return '<div class="copy-variant">' +
+        '<div class="copy-variant-head"><span class="copy-code">' + code + '</span></div>' +
+        '<div class="copy-text">' + txt + '</div>' +
+        '<div class="copy-footer">' +
+        '<span class="char-count ' + (over?'over':'') + '">' + chars + '/' + limite + '</span>' +
+        '<div class="char-bar"><div class="char-bar-fill ' + (over?'over':'') + '" style="width:' + pct + '%"></div></div>' +
+        '<button class="btn-copy" onclick="copiar(this,\'' + safe + '\')">copiar</button>' +
+        '</div></div>';
+    }
+
+    if (activeTab === 'google_rsa' && resultData.google && resultData.google.rsa) {
+      const rsa = resultData.google.rsa;
+      html += '<div class="section-group"><div class="section-group-title">Rutas visibles (después del dominio)</div><div class="copies-grid">';
+      if (rsa.rutas) {
+        html += '<div class="copy-card"><div class="copy-card-head"><span class="copy-tipo">Ruta visible</span></div><div class="copy-variants">';
+        rsa.rutas.forEach((r, i) => { html += variantCard('G-RUT-' + String.fromCharCode(65+i), r, 15); });
+        html += '</div></div>';
       }
+      html += '</div></div>';
 
-      renderResults(data)
+      html += '<div class="section-group"><div class="section-group-title">Titulares RSA (10) — MAX 30 chars</div><div class="copies-grid">';
+      if (rsa.titulares) {
+        rsa.titulares.forEach((item, i) => {
+          const code = 'G-T' + (i+1) + '-A';
+          html += '<div class="copy-card"><div class="copy-card-head"><span class="copy-tipo">Titular ' + (i+1) + '</span></div><div class="copy-variants">' + variantCard(code, item.t, item.l) + '</div></div>';
+        });
+      }
+      html += '</div></div>';
 
-    } catch (err) {
-      document.getElementById('loading').classList.remove('active')
-      document.getElementById('errorBox').classList.add('active')
-      document.getElementById('errorMsg').textContent = err.message
-      document.getElementById('errorDetail').textContent = 'Verificá tu conexión e intentá de nuevo.'
-      document.getElementById('quickSection').style.display = 'block'
+      html += '<div class="section-group"><div class="section-group-title">Descripciones RSA (4) — MAX 90 chars</div><div class="copies-grid">';
+      if (rsa.descripciones) {
+        rsa.descripciones.forEach((item, i) => {
+          const code = 'G-D' + (i+1) + '-A';
+          html += '<div class="copy-card"><div class="copy-card-head"><span class="copy-tipo">Descripción ' + (i+1) + '</span></div><div class="copy-variants">' + variantCard(code, item.t, item.l) + '</div></div>';
+        });
+      }
+      html += '</div></div>';
+
+    } else if (activeTab === 'google_pmax' && resultData.google && resultData.google.pmax) {
+      const pmax = resultData.google.pmax;
+      html += '<div class="section-group"><div class="section-group-title">Títulos largos PMAX (5) — MAX 90 chars</div><div class="copies-grid">';
+      if (pmax.titulos_largos) {
+        pmax.titulos_largos.forEach((item, i) => {
+          html += '<div class="copy-card"><div class="copy-card-head"><span class="copy-tipo">Título largo ' + (i+1) + '</span></div><div class="copy-variants">' + variantCard('P-TL' + (i+1) + '-A', item.t, item.l) + '</div></div>';
+        });
+      }
+      html += '</div></div>';
+      html += '<div class="section-group"><div class="section-group-title">Descripciones largas PMAX (5) — MAX 90 chars</div><div class="copies-grid">';
+      if (pmax.descripciones_largas) {
+        pmax.descripciones_largas.forEach((item, i) => {
+          html += '<div class="copy-card"><div class="copy-card-head"><span class="copy-tipo">Descripción larga ' + (i+1) + '</span></div><div class="copy-variants">' + variantCard('P-DL' + (i+1) + '-A', item.t, item.l) + '</div></div>';
+        });
+      }
+      html += '</div></div>';
+
+    } else if (activeTab === 'google_ext' && resultData.google && resultData.google.extensiones) {
+      const ext = resultData.google.extensiones;
+      html += '<div class="section-group"><div class="section-group-title">Sitelinks (3) — MAX 25 chars</div><div class="copies-grid">';
+      if (ext.sitelinks) {
+        ext.sitelinks.forEach((item, i) => {
+          html += '<div class="copy-card"><div class="copy-card-head"><span class="copy-tipo">Sitelink ' + (i+1) + '</span></div><div class="copy-variants">' + variantCard('G-SL' + (i+1) + '-A', item.t, item.l) + '</div></div>';
+        });
+      }
+      html += '</div></div>';
+      html += '<div class="section-group"><div class="section-group-title">Textos destacados (6) — MAX 25 chars</div><div class="copies-grid">';
+      if (ext.destacados) {
+        ext.destacados.forEach((item, i) => {
+          html += '<div class="copy-card"><div class="copy-card-head"><span class="copy-tipo">Destacado ' + (i+1) + '</span></div><div class="copy-variants">' + variantCard('G-TD' + (i+1) + '-A', item.t, item.l) + '</div></div>';
+        });
+      }
+      html += '</div></div>';
+
+    } else if (activeTab === 'meta_feed' && resultData.meta && resultData.meta.feed) {
+      const feed = resultData.meta.feed;
+      html += '<div class="section-group"><div class="section-group-title">Meta Feed</div><div class="copies-grid">';
+      if (feed.texto_principal) html += '<div class="copy-card"><div class="copy-card-head"><span class="copy-tipo">Texto principal</span><span class="copy-num">MAX 125</span></div><div class="copy-variants">' + variantCard('M-TP-A', feed.texto_principal.t, feed.texto_principal.l) + '</div></div>';
+      if (feed.titular) html += '<div class="copy-card"><div class="copy-card-head"><span class="copy-tipo">Titular</span><span class="copy-num">MAX 40</span></div><div class="copy-variants">' + variantCard('M-TIT-A', feed.titular.t, feed.titular.l) + '</div></div>';
+      if (feed.descripcion) html += '<div class="copy-card"><div class="copy-card-head"><span class="copy-tipo">Descripción</span><span class="copy-num">MAX 30</span></div><div class="copy-variants">' + variantCard('M-DESC-A', feed.descripcion.t, feed.descripcion.l) + '</div></div>';
+      html += '</div></div>';
+
+    } else if (activeTab === 'meta_stories' && resultData.meta && resultData.meta.stories) {
+      const stories = resultData.meta.stories;
+      html += '<div class="section-group"><div class="section-group-title">Meta Stories / Reels</div><div class="copies-grid">';
+      if (stories.overlay) html += '<div class="copy-card"><div class="copy-card-head"><span class="copy-tipo">Texto overlay</span><span class="copy-num">MAX 90</span></div><div class="copy-variants">' + variantCard('M-ST-A', stories.overlay.t, stories.overlay.l) + '</div></div>';
+      if (stories.cta) html += '<div class="copy-card"><div class="copy-card-head"><span class="copy-tipo">CTA</span><span class="copy-num">MAX 20</span></div><div class="copy-variants">' + variantCard('M-CTA-A', stories.cta.t, stories.cta.l) + '</div></div>';
+      html += '</div></div>';
     }
 
-    btn.disabled = false
-    btn.textContent = 'Buscar eventos ↗'
+    area.innerHTML = html || '<div class="empty-state"><p>Sin datos para esta sección</p></div>';
   }
 
-  function renderResults(data) {
-    document.getElementById('loading').classList.remove('active')
-    allEvents = data.events || []
-    activeFilter = 'todos'
+  function switchTab(t) { activeTab = t; renderResults(); }
 
-    if (allEvents.length === 0) {
-      document.getElementById('errorBox').classList.add('active')
-      document.getElementById('errorMsg').innerHTML =
-        'No se encontraron eventos para este destino y período.'
-      document.getElementById('errorDetail').innerHTML =
-        'Probá reducir el período o buscá una ciudad más específica.'
-      document.getElementById('errorBox').insertAdjacentHTML('beforeend',
-        '<br><button class="retry-btn" onclick="retryShort()">Reintentar con 30 días ↗</button>'
-      )
-      document.getElementById('quickSection').style.display = 'block'
-      return
+  function copiar(btn, txt) {
+    navigator.clipboard.writeText(txt).then(() => {
+      btn.textContent = 'copiado ✓';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'copiar'; btn.classList.remove('copied'); }, 1800);
+    });
+  }
+
+  function exportarPDF() {
+    if (!resultData) return;
+    const win = window.open('', '_blank');
+    const fecha = new Date().toLocaleDateString('es-AR');
+
+    let rows = '';
+
+    function addRows(items, prefix) {
+      items.forEach((item, i) => {
+        const code = prefix + (i+1) + '-A';
+        const txt = item.t || item;
+        const limite = item.l || '-';
+        const chars = txt.length;
+        const over = typeof limite === 'number' && chars > limite;
+        rows += '<tr>' +
+          '<td style="font-family:monospace;font-size:11px;background:#e8f3ea;color:#3a7d44;padding:6px 10px;border:1px solid #e2e5de;white-space:nowrap">' + code + '</td>' +
+          '<td style="padding:6px 10px;border:1px solid #e2e5de;font-size:13px">' + txt + '</td>' +
+          '<td style="padding:6px 10px;border:1px solid #e2e5de;font-size:11px;color:' + (over?'#c0392b':'#9aa890') + ';text-align:center;white-space:nowrap">' + chars + '/' + limite + '</td>' +
+          '<td style="padding:6px 10px;border:1px solid #e2e5de;width:120px">&nbsp;</td>' +
+          '</tr>';
+      });
     }
 
-    document.getElementById('resultsTitle').textContent = data.destination || ''
-    document.getElementById('resultsMeta').textContent = allEvents.length + ' eventos encontrados'
-
-    buildFilters(allEvents)
-    renderCards(allEvents)
-
-    if (data.rm_insight) {
-      document.getElementById('insightText').textContent = data.rm_insight
-      document.getElementById('rmInsight').style.display = 'block'
-    } else {
-      document.getElementById('rmInsight').style.display = 'none'
+    function sectionHeader(title) {
+      rows += '<tr><td colspan="4" style="background:#3a7d44;color:white;font-weight:600;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;padding:8px 10px;border:1px solid #3a7d44">' + title + '</td></tr>';
     }
 
-    document.getElementById('results').style.display = 'block'
-  }
+    if (resultData.google) {
+      if (resultData.google.rsa) {
+        const rsa = resultData.google.rsa;
+        if (rsa.rutas) { sectionHeader('Rutas visibles'); rsa.rutas.forEach((r,i) => { rows += '<tr><td style="font-family:monospace;font-size:11px;background:#e8f3ea;color:#3a7d44;padding:6px 10px;border:1px solid #e2e5de">G-RUT-' + String.fromCharCode(65+i) + '</td><td style="padding:6px 10px;border:1px solid #e2e5de;font-size:13px">' + r + '</td><td style="padding:6px 10px;border:1px solid #e2e5de;font-size:11px;color:#9aa890;text-align:center">' + r.length + '/15</td><td style="padding:6px 10px;border:1px solid #e2e5de;width:120px">&nbsp;</td></tr>'; }); }
+        if (rsa.titulares) { sectionHeader('Google RSA — Titulares (MAX 30 chars)'); addRows(rsa.titulares, 'G-T'); }
+        if (rsa.descripciones) { sectionHeader('Google RSA — Descripciones (MAX 90 chars)'); addRows(rsa.descripciones, 'G-D'); }
+      }
+      if (resultData.google.pmax) {
+        const pmax = resultData.google.pmax;
+        if (pmax.titulos_largos) { sectionHeader('Google PMAX — Títulos largos (MAX 90 chars)'); addRows(pmax.titulos_largos, 'P-TL'); }
+        if (pmax.descripciones_largas) { sectionHeader('Google PMAX — Descripciones largas (MAX 90 chars)'); addRows(pmax.descripciones_largas, 'P-DL'); }
+      }
+      if (resultData.google.extensiones) {
+        const ext = resultData.google.extensiones;
+        if (ext.sitelinks) { sectionHeader('Sitelinks (MAX 25 chars)'); addRows(ext.sitelinks, 'G-SL'); }
+        if (ext.destacados) { sectionHeader('Textos destacados (MAX 25 chars)'); addRows(ext.destacados, 'G-TD'); }
+      }
+    }
+    if (resultData.meta) {
+      sectionHeader('Meta Ads — Feed');
+      if (resultData.meta.feed) {
+        const f = resultData.meta.feed;
+        if (f.texto_principal) rows += '<tr><td style="font-family:monospace;font-size:11px;background:#e8f3ea;color:#3a7d44;padding:6px 10px;border:1px solid #e2e5de">M-TP-A</td><td style="padding:6px 10px;border:1px solid #e2e5de;font-size:13px">' + f.texto_principal.t + '</td><td style="padding:6px 10px;border:1px solid #e2e5de;font-size:11px;color:#9aa890;text-align:center">' + f.texto_principal.t.length + '/125</td><td style="padding:6px 10px;border:1px solid #e2e5de;width:120px">&nbsp;</td></tr>';
+        if (f.titular) rows += '<tr><td style="font-family:monospace;font-size:11px;background:#e8f3ea;color:#3a7d44;padding:6px 10px;border:1px solid #e2e5de">M-TIT-A</td><td style="padding:6px 10px;border:1px solid #e2e5de;font-size:13px">' + f.titular.t + '</td><td style="padding:6px 10px;border:1px solid #e2e5de;font-size:11px;color:#9aa890;text-align:center">' + f.titular.t.length + '/40</td><td style="padding:6px 10px;border:1px solid #e2e5de;width:120px">&nbsp;</td></tr>';
+        if (f.descripcion) rows += '<tr><td style="font-family:monospace;font-size:11px;background:#e8f3ea;color:#3a7d44;padding:6px 10px;border:1px solid #e2e5de">M-DESC-A</td><td style="padding:6px 10px;border:1px solid #e2e5de;font-size:13px">' + f.descripcion.t + '</td><td style="padding:6px 10px;border:1px solid #e2e5de;font-size:11px;color:#9aa890;text-align:center">' + f.descripcion.t.length + '/30</td><td style="padding:6px 10px;border:1px solid #e2e5de;width:120px">&nbsp;</td></tr>';
+      }
+      sectionHeader('Meta Ads — Stories / Reels');
+      if (resultData.meta.stories) {
+        const s = resultData.meta.stories;
+        if (s.overlay) rows += '<tr><td style="font-family:monospace;font-size:11px;background:#e8f3ea;color:#3a7d44;padding:6px 10px;border:1px solid #e2e5de">M-ST-A</td><td style="padding:6px 10px;border:1px solid #e2e5de;font-size:13px">' + s.overlay.t + '</td><td style="padding:6px 10px;border:1px solid #e2e5de;font-size:11px;color:#9aa890;text-align:center">' + s.overlay.t.length + '/90</td><td style="padding:6px 10px;border:1px solid #e2e5de;width:120px">&nbsp;</td></tr>';
+        if (s.cta) rows += '<tr><td style="font-family:monospace;font-size:11px;background:#e8f3ea;color:#3a7d44;padding:6px 10px;border:1px solid #e2e5de">M-CTA-A</td><td style="padding:6px 10px;border:1px solid #e2e5de;font-size:13px">' + s.cta.t + '</td><td style="padding:6px 10px;border:1px solid #e2e5de;font-size:11px;color:#9aa890;text-align:center">' + s.cta.t.length + '/20</td><td style="padding:6px 10px;border:1px solid #e2e5de;width:120px">&nbsp;</td></tr>';
+      }
+    }
 
-  function buildFilters(events) {
-    const cats = ['todos', ...new Set(events.map(e => e.category).filter(Boolean))]
-    const catLabels = { todos:'Todos', music:'Música', sport:'Deporte', cultural:'Cultural', mice:'MICE', gastro:'Gastronomía', festivo:'Festivos', other:'Otros' }
-    document.getElementById('filterBar').innerHTML = cats.map(c =>
-      `<button class="filter-btn ${c === activeFilter ? 'active' : ''}" onclick="applyFilter('${c}')">${catLabels[c] || c}</button>`
-    ).join('')
-  }
-
-  function applyFilter(cat) {
-    activeFilter = cat
-    buildFilters(allEvents)
-    renderCards(cat === 'todos' ? allEvents : allEvents.filter(e => e.category === cat))
-  }
-
-  function renderCards(events) {
-    const catClass = { music:'cat-music', sport:'cat-sport', cultural:'cat-cultural', mice:'cat-mice', gastro:'cat-gastro', festivo:'cat-festivo', other:'cat-other' }
-    const catLabel = { music:'Música', sport:'Deporte', cultural:'Cultural', mice:'MICE', gastro:'Gastronomía', festivo:'Festivo', other:'Evento' }
-    document.getElementById('eventsList').innerHTML = events.map((ev, i) => `
-      <div class="event-card ${ev.importance === 'high' ? 'high-impact' : ''}" style="animation-delay:${(i*0.04).toFixed(2)}s">
-        <div class="date-box">
-          <div class="date-day">${ev.day || '?'}</div>
-          <div class="date-mon">${ev.month || '?'}</div>
-        </div>
-        <div>
-          <div class="event-name">${ev.name || ''}</div>
-          ${ev.venue ? `<div class="event-venue">${ev.venue}${ev.capacity ? ' · ' + ev.capacity : ''}</div>` : ''}
-          ${ev.impact ? `<div class="event-impact">${ev.impact}</div>` : ''}
-        </div>
-        <div class="event-right">
-          <span class="cat-tag ${catClass[ev.category] || 'cat-other'}">${catLabel[ev.category] || 'Evento'}</span>
-          <span class="impact-badge ${ev.importance === 'high' ? 'impact-alto' : 'impact-medio'}">${ev.importance === 'high' ? 'Alto impacto' : 'Medio'}</span>
-        </div>
-      </div>`).join('')
+    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>CachoGen — ' + currentProducto + '</title><style>body{font-family:Arial,sans-serif;margin:40px;color:#1a1e16}@media print{body{margin:20px}}</style></head><body>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #3a7d44">' +
+      '<div>' +
+      '<svg width="140" height="35" viewBox="0 0 480 120" xmlns="http://www.w3.org/2000/svg"><path d="M88,22 A48,48 0 1,0 88,98" fill="none" stroke="#3B6D11" stroke-width="5" stroke-linecap="round"/><circle cx="40" cy="60" r="8" fill="#3B6D11"/><line x1="40" y1="52" x2="40" y2="28" stroke="#639922" stroke-width="2" stroke-linecap="round" stroke-dasharray="3 3" opacity="0.85"/><line x1="40" y1="68" x2="40" y2="92" stroke="#BA7517" stroke-width="2" stroke-linecap="round" stroke-dasharray="3 3" opacity="0.8"/><line x1="108" y1="14" x2="108" y2="106" stroke="#CCCCCC" stroke-width="1"/><text font-family="sans-serif" font-size="42" font-weight="500" letter-spacing="5" fill="#1a1a1a" x="122" y="56" dominant-baseline="central">COIRA</text><text font-family="sans-serif" font-size="10" font-weight="400" letter-spacing="3" fill="#666666" x="124" y="90" dominant-baseline="central">TECNOLOGÍA · MARKETING · PROYECTOS</text></svg>' +
+      '<div style="font-size:11px;color:#9aa890;margin-top:4px">CachoGen — Generador de copies</div>' +
+      '</div>' +
+      '<div style="text-align:right"><div style="font-size:18px;font-weight:600">' + currentProducto + '</div><div style="font-size:12px;color:#9aa890;margin-top:2px">' + fecha + '</div></div>' +
+      '</div>' +
+      '<p style="font-size:12px;color:#5a6355;margin-bottom:20px;background:#e8f3ea;padding:10px 14px;border-radius:6px">Para aprobar o rechazar: anotá el código del anuncio (ej: <strong>G-T3-A</strong>) y tu comentario. Los copies en rojo superan el límite de caracteres.</p>' +
+      '<table style="width:100%;border-collapse:collapse">' +
+      '<thead><tr>' +
+      '<th style="background:#f0f2ed;padding:8px 10px;border:1px solid #e2e5de;font-size:11px;text-align:left;white-space:nowrap">Código</th>' +
+      '<th style="background:#f0f2ed;padding:8px 10px;border:1px solid #e2e5de;font-size:11px;text-align:left">Texto</th>' +
+      '<th style="background:#f0f2ed;padding:8px 10px;border:1px solid #e2e5de;font-size:11px;text-align:center;white-space:nowrap">Chars</th>' +
+      '<th style="background:#f0f2ed;padding:8px 10px;border:1px solid #e2e5de;font-size:11px;text-align:center">OK / NO / Comentario</th>' +
+      '</tr></thead>' +
+      '<tbody>' + rows + '</tbody>' +
+      '</table>' +
+      '<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e2e5de;display:flex;justify-content:space-between;font-size:10px;color:#9aa890">' +
+      '<span>Producto de Agencia Coira</span><span>CachoGen v2.0</span>' +
+      '</div>' +
+      '<script>window.onload=function(){window.print();}<\/script>' +
+      '</body></html>');
+    win.document.close();
   }
 </script>
 </body>
